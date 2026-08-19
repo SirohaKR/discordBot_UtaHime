@@ -123,6 +123,6 @@ python web/app.py        # 웹 설정 페이지 (선택, 별도 터미널)
 5. **빌드 및 실행**: 빌드가 끝나면 `utahime-bot`, `utahime-web` 두 컨테이너가 뜸. `bot_settings.json`, `playlists.db`가 볼륨 마운트되어 컨테이너를 재생성해도 데이터가 유지됨.
 6. **동작 확인**:
    - Container Manager → 컨테이너 → `utahime-bot` → 로그 탭에서 `✅ 봇 실행/연결 완료`가 보이면 정상.
-   - 웹페이지는 `http://<NAS IP>:5000/?token=<WEB_ADMIN_TOKEN>`으로 접속.
+   - 웹페이지는 `http://<NAS IP>:5050/?token=<WEB_ADMIN_TOKEN>`으로 접속 (NAS 자체 관리 페이지가 5000번 포트를 쓰기 때문에 `docker-compose.yml`에서 호스트 쪽 포트를 5050으로 매핑해뒀습니다. 컨테이너 내부 포트는 그대로 5000).
 7. **자동 재시작/자동 업데이트**: `restart: unless-stopped`로 NAS 재부팅이나 봇 크래시 시에도 자동 재기동. yt-dlp도 주 1회 자동으로 최신 버전으로 업데이트되고 자동 재시작됨(코드 재배포 불필요).
 8. (선택) 외부에서 웹페이지에 접속하려면 NAS의 리버스 프록시/DDNS 설정이 별도로 필요 — 필요하면 그때 추가로 도와드릴 수 있음.
