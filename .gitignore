@@ -1,0 +1,14 @@
+.env
+__pycache__/
+*.pyc
+bot_settings.json
+bot_settings.json.migrated
+playlists.db
+playlists.db-shm
+playlists.db-wal
+
+# 토큰이 평문으로 박혀 있는 구버전 파일 - 깃허브에 올리면 안 됨
+legacy_UtaHime.py
+
+# 로컬 전용 Claude Code 설정
+.claude/settings.local.json

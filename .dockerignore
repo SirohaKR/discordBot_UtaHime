@@ -1,0 +1,6 @@
+.env
+.git
+__pycache__/
+*.pyc
+legacy_UtaHime.py
+playlists.db

@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>공주님 봇 설정</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", sans-serif; background:#0f1115; color:#e6e6e6;
+         display:flex; justify-content:center; padding:40px 16px; margin:0; }
+  .wrap { width:100%; max-width:600px; display:flex; flex-direction:column; gap:20px; }
+  .card { background:#1a1d24; border-radius:12px; padding:28px; box-shadow:0 4px 24px rgba(0,0,0,.3); }
+  h1 { font-size:1.3rem; margin-top:0; }
+  h2 { font-size:1.05rem; margin-top:0; margin-bottom:14px; color:#c9cdd6; }
+  label { display:block; margin:14px 0 6px; font-size:.9rem; color:#c9cdd6; }
+  input[type=number], select, input[type=text], input[type=url] {
+    width:100%; box-sizing:border-box; padding:9px 10px; border-radius:8px; border:1px solid #333;
+    background:#0f1115; color:#e6e6e6; font-size:.95rem; transition:border-color .15s;
+  }
+  input[type=number]:focus, select:focus, input[type=text]:focus, input[type=url]:focus {
+    outline:none; border-color:#4f8cff;
+  }
+  .row { display:flex; align-items:center; gap:8px; }
+  button {
+    margin-top:18px; padding:10px 16px; border-radius:8px; border:none; background:#4f8cff; color:#fff;
+    font-size:.95rem; cursor:pointer; transition:background .15s, opacity .15s;
+  }
+  button:hover:not(:disabled) { background:#3b76e6; }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  button.danger { background:#e5484d; padding:6px 12px; font-size:.85rem; margin-top:0; }
+  button.danger:hover { background:#c9302f; }
+  button.secondary { background:#2a2e37; }
+  button.secondary:hover:not(:disabled) { background:#353a45; }
+  table { width:100%; border-collapse:collapse; margin-top:12px; }
+  th, td { text-align:left; padding:8px 6px; border-bottom:1px solid #2a2e37; font-size:.9rem; }
+  th { color:#9098a4; font-weight:500; }
+  tbody tr:hover { background:#20242c; }
+  a { color:#7dd3fc; word-break:break-all; }
+  .muted { color:#9098a4; font-size:.85rem; }
+  .add-form { display:flex; gap:8px; margin-top:16px; flex-wrap:wrap; }
+  .add-form input { flex:1; min-width:140px; }
+  .topnav { display:flex; justify-content:flex-end; }
+  .topnav a { font-size:.85rem; color:#9098a4; text-decoration:none; }
+  .topnav a:hover { color:#7dd3fc; }
+
+  .now-playing { display:flex; gap:14px; align-items:center; }
+  .now-playing img { width:72px; height:72px; object-fit:cover; border-radius:8px; flex-shrink:0; }
+  .result-title { font-weight:600; font-size:.95rem; }
+
+  .search-row { display:flex; gap:8px; margin-top:18px; }
+  .search-row input { flex:1; }
+  .search-results { display:flex; flex-direction:column; gap:8px; margin-top:12px; max-height:320px; overflow-y:auto; }
+  .result-card {
+    display:flex; gap:10px; align-items:center; padding:8px; border-radius:8px; border:1px solid #2a2e37;
+    cursor:pointer; transition:border-color .15s, background .15s;
+  }
+  .result-card:hover { background:#20242c; }
+  .result-card.selected { border-color:#4f8cff; background:#182338; }
+  .result-card img { width:56px; height:56px; object-fit:cover; border-radius:6px; flex-shrink:0; background:#0f1115; }
+  .result-info { min-width:0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topnav"><a href="{{ url_for('guild_logs', guild_id=guild_id) }}">📊 로그/통계 보기 →</a></div>
+
+  <div class="card">
+    <h1>🎶 공주님 봇 설정 <span class="muted">(서버 {{ guild_id }})</span></h1>
+
+    <form method="post" action="{{ url_for('update_settings', guild_id=guild_id) }}">
+      <label for="volume">기본 볼륨 ({{ volume_percent }}%)</label>
+      <input type="number" id="volume" name="volume" min="1" max="200" value="{{ volume_percent }}">
+
+      <label class="row">
+        <input type="checkbox" name="shuffle" {% if settings.shuffle %}checked{% endif %}>
+        기본 셔플 상태 (ON)
+      </label>
+
+      <label for="loop_mode">기본 반복 모드</label>
+      <select id="loop_mode" name="loop_mode">
+        <option value="off" {% if settings.loop_mode == 'off' %}selected{% endif %}>끔</option>
+        <option value="all" {% if settings.loop_mode == 'all' %}selected{% endif %}>전체 반복</option>
+        <option value="one" {% if settings.loop_mode == 'one' %}selected{% endif %}>한 곡 반복</option>
+      </select>
+
+      <button type="submit">저장</button>
+    </form>
+    <p class="muted">저장하면 봇이 몇 초 안에 자동으로 반영합니다 (재시작 불필요).</p>
+  </div>
+
+  <div class="card" id="now-playing-card">
+    <h2>🎧 현재 재생 상태</h2>
+    <div id="now-playing-body"><p class="muted">불러오는 중...</p></div>
+  </div>
+
+  <div class="card">
+    <h2>📂 저장된 플레이리스트</h2>
+    {% if playlists %}
+      <table>
+        <tr><th>이름</th><th>링크</th><th>등록</th><th></th></tr>
+        {% for name, url, added_by in playlists %}
+        <tr>
+          <td>{{ name }}</td>
+          <td><a href="{{ url }}" target="_blank" rel="noopener">열기</a></td>
+          <td class="muted">{{ added_by }}</td>
+          <td>
+            <form method="post" action="{{ url_for('delete_playlist', guild_id=guild_id, name=name) }}"
+                  onsubmit="return confirm('삭제할까요?');">
+              <button type="submit" class="danger">삭제</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    {% else %}
+      <p class="muted">저장된 플레이리스트가 없습니다.</p>
+    {% endif %}
+
+    <label for="pl-name">새 플레이리스트 이름</label>
+    <input type="text" id="pl-name" placeholder="예: 즐겨듣기">
+
+    <div class="search-row">
+      <input type="text" id="pl-search-q" placeholder="검색어 또는 유튜브 링크">
+      <button type="button" id="pl-search-btn" class="secondary">🔍 검색</button>
+    </div>
+    <div id="pl-search-results" class="search-results"></div>
+
+    <form id="playlist-add-form" method="post" action="{{ url_for('add_playlist', guild_id=guild_id) }}">
+      <input type="hidden" name="name" id="pl-name-hidden">
+      <input type="hidden" name="url" id="pl-url">
+      <button type="submit" id="pl-submit" disabled>선택한 곡/링크로 추가</button>
+    </form>
+  </div>
+
+</div>
+
+<script>
+  const nameInput = document.getElementById('pl-name');
+  const nameHidden = document.getElementById('pl-name-hidden');
+  const urlInput = document.getElementById('pl-url');
+  const submitBtn = document.getElementById('pl-submit');
+  const searchBtn = document.getElementById('pl-search-btn');
+  const searchInput = document.getElementById('pl-search-q');
+  const resultsBox = document.getElementById('pl-search-results');
+  const addForm = document.getElementById('playlist-add-form');
+
+  function updateSubmitState() {
+    submitBtn.disabled = !(nameInput.value.trim() && urlInput.value);
+  }
+  nameInput.addEventListener('input', updateSubmitState);
+
+  addForm.addEventListener('submit', () => {
+    nameHidden.value = nameInput.value.trim();
+  });
+
+  function formatDuration(sec) {
+    if (!sec) return '';
+    const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+    return m + ':' + String(s).padStart(2, '0');
+  }
+
+  function selectResult(url, cardEl) {
+    urlInput.value = url;
+    updateSubmitState();
+    resultsBox.querySelectorAll('.result-card').forEach((c) => c.classList.remove('selected'));
+    if (cardEl) cardEl.classList.add('selected');
+  }
+
+  searchBtn.addEventListener('click', async () => {
+    const q = searchInput.value.trim();
+    if (!q) return;
+
+    if (q.startsWith('http://') || q.startsWith('https://')) {
+      selectResult(q, null);
+      resultsBox.innerHTML = '<p class="muted">링크가 그대로 선택되었습니다. 이름을 입력하고 추가하세요.</p>';
+      return;
+    }
+
+    resultsBox.innerHTML = '<p class="muted">검색 중...</p>';
+    searchBtn.disabled = true;
+    try {
+      const res = await fetch('{{ url_for("search_songs", guild_id=guild_id) }}?q=' + encodeURIComponent(q));
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        resultsBox.innerHTML = '<p class="muted">검색 결과가 없습니다.</p>';
+        return;
+      }
+      resultsBox.innerHTML = '';
+      data.forEach((item) => {
+        const card = document.createElement('div');
+        card.className = 'result-card';
+        card.innerHTML =
+          '<img src="' + (item.thumbnail || '') + '" alt="">' +
+          '<div class="result-info">' +
+            '<div class="result-title"></div>' +
+            '<div class="muted">' + formatDuration(item.duration) + '</div>' +
+          '</div>';
+        card.querySelector('.result-title').textContent = item.title;
+        card.addEventListener('click', () => selectResult(item.url, card));
+        resultsBox.appendChild(card);
+      });
+    } catch (e) {
+      resultsBox.innerHTML = '<p class="muted">검색 중 오류가 발생했습니다.</p>';
+    } finally {
+      searchBtn.disabled = false;
+    }
+  });
+
+  async function refreshNowPlaying() {
+    const body = document.getElementById('now-playing-body');
+    try {
+      const res = await fetch('{{ url_for("now_playing_json", guild_id=guild_id) }}');
+      const data = await res.json();
+      if (!data || !data.title) {
+        body.innerHTML = '<p class="muted">재생 중인 곡이 없습니다.</p>';
+        return;
+      }
+      const thumb = data.thumbnail ? '<img src="' + data.thumbnail + '" alt="">' : '';
+      body.innerHTML =
+        '<div class="now-playing">' + thumb +
+          '<div>' +
+            '<div class="result-title"><a href="' + data.url + '" target="_blank" rel="noopener"></a></div>' +
+            '<div class="muted"></div>' +
+            '<div class="muted">대기열 ' + (data.queue_length || 0) + '곡</div>' +
+          '</div>' +
+        '</div>';
+      body.querySelector('.result-title a').textContent = data.title;
+      body.querySelector('.now-playing > div > .muted').textContent =
+        '요청자: ' + (data.requester || '알 수 없음') + ' · 길이 ' + (data.duration || '-');
+    } catch (e) {
+      // 다음 폴링에서 재시도
+    }
+  }
+  refreshNowPlaying();
+  setInterval(refreshNowPlaying, 5000);
+</script>
+</body>
+</html>

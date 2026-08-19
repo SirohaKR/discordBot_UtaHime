@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>공주님 봇 로그</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", sans-serif; background:#0f1115; color:#e6e6e6;
+         display:flex; justify-content:center; padding:40px 16px; margin:0; }
+  .wrap { width:100%; max-width:640px; display:flex; flex-direction:column; gap:20px; }
+  .card { background:#1a1d24; border-radius:12px; padding:28px; box-shadow:0 4px 24px rgba(0,0,0,.3); }
+  h1 { font-size:1.3rem; margin-top:0; }
+  h2 { font-size:1.05rem; margin-top:0; margin-bottom:14px; color:#c9cdd6; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:8px 6px; border-bottom:1px solid #2a2e37; font-size:.87rem; vertical-align:top; }
+  th { color:#9098a4; font-weight:500; }
+  tbody tr:hover { background:#20242c; }
+  a { color:#7dd3fc; word-break:break-all; }
+  .muted { color:#9098a4; font-size:.82rem; }
+  .topnav a { font-size:.85rem; color:#9098a4; text-decoration:none; }
+  .topnav a:hover { color:#7dd3fc; }
+  .err-msg { white-space:pre-wrap; font-family:monospace; font-size:.8rem; color:#f2a1a1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topnav"><a href="{{ url_for('guild_page', guild_id=guild_id) }}">← 설정으로 돌아가기</a></div>
+
+  <div class="card">
+    <h2>🎵 최근 재생 기록 <span class="muted">(최대 50건)</span></h2>
+    {% if plays %}
+      <table>
+        <tr><th>곡</th><th>요청자</th><th>시각</th></tr>
+        {% for title, url, requester, played_at in plays %}
+        <tr>
+          <td>{% if url %}<a href="{{ url }}" target="_blank" rel="noopener">{{ title }}</a>{% else %}{{ title }}{% endif %}</td>
+          <td class="muted">{{ requester or '알 수 없음' }}</td>
+          <td class="muted">{{ played_at }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    {% else %}
+      <p class="muted">재생 기록이 없습니다.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>⚠️ 최근 에러 <span class="muted">(최대 20건)</span></h2>
+    {% if errors %}
+      <table>
+        <tr><th>내용</th><th>시각</th></tr>
+        {% for message, occurred_at in errors %}
+        <tr>
+          <td class="err-msg">{{ message }}</td>
+          <td class="muted">{{ occurred_at }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    {% else %}
+      <p class="muted">기록된 에러가 없습니다.</p>
+    {% endif %}
+  </div>
+
+</div>
+</body>
+</html>

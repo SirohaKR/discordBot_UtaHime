@@ -1,0 +1,5 @@
+# [voice] extra: PyNaCl + davey(DAVE E2EE 프로토콜) 포함 — 2026-03 디스코드 음성 E2EE 강제 정책 대응
+discord.py[voice]>=2.7.1
+yt-dlp>=2024.8.6
+python-dotenv>=1.0.1
+flask>=3.0.0

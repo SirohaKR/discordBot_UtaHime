@@ -1,0 +1,22 @@
+services:
+  utahime-bot:
+    build: .
+    container_name: utahime-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./bot_settings.json:/app/bot_settings.json
+      - ./playlists.db:/app/playlists.db
+
+  utahime-web:
+    build: .
+    container_name: utahime-web
+    command: ["python", "web/app.py"]
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./playlists.db:/app/playlists.db
