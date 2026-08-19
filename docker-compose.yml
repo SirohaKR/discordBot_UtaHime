@@ -6,7 +6,6 @@ services:
     env_file:
       - .env
     volumes:
-      - ./bot_settings.json:/app/bot_settings.json
       - ./playlists.db:/app/playlists.db
 
   utahime-web:
