@@ -26,6 +26,8 @@
   - 유저별 15초 쿨다운(스팸 방지).
   - 기본 해상도/스텝(28)은 전부 NovelAI 무료 티어 범위(≤1,048,576px) 안에서만 제공 — Opus 등 구독 플랜의 정액 요금 안에서 해결되고 Anlas가 추가로 빠지지 않음.
 - `/애나니스` — Anlas(크레딧) 잔액과 Opus 구독 여부 확인.
+- `/그림채널설정` — 현재 채널을 이미지 생성 전용 채널로 지정. 지정 후에는 그 채널에서만 `/그림생성` 사용 가능(다른 채널에서 시도하면 안내 메시지).
+- `/그림채널설정해제` — 채널 제한 해제 (아무 채널에서나 다시 사용 가능).
 - NovelAI 토큰 발급: NovelAI 로그인 → 좌측 톱니바퀴(User Settings) → Account 탭 → **Get Persistent API Token** → 복사해서 `.env`의 `NAI_TOKEN`에 붙여넣기.
 - Claude API 키 발급(선택, 자동 프롬프트 변환용): [console.anthropic.com](https://console.anthropic.com) 가입 → 결제수단 등록 → API Keys에서 발급 → `.env`의 `ANTHROPIC_API_KEY`에 붙여넣기. Haiku 4.5 기준 이미지 1장당 약 $0.001~0.002 추가 비용(NovelAI 구독료와 별개, Anthropic 쪽에 종량제로 청구).
 - 참고: NovelAI 연동은 아카라이브에 공개된 "Novel AI 이미지 생성 도구 개발용 API 레퍼런스"(DNT-LAB/NAIA_novel_ai_entrypoint)의 비공식 API 스펙을 기반으로 구현됨 (`core/nai_client.py`). 프롬프트 자동 변환은 `core/prompt_writer.py`.
@@ -101,6 +103,7 @@ cogs/music.py                # 음악 재생 + 플레이리스트 북마크 기�
 cogs/image.py                # NovelAI 이미지 생성 (/그림생성, /애나니스)
 core/nai_client.py            # NovelAI 이미지 생성 API 클라이언트 (aiohttp)
 core/prompt_writer.py          # 자연어 설명 -> Danbooru 태그 변환 (Claude Haiku 4.5)
+core/image_settings_db.py      # 이미지 생성 전용 채널 설정 저장소 (SQLite, playlists.db 공유)
 core/guild_settings_db.py     # 서버별 설정 저장소 (SQLite, 웹페이지와 공유)
 core/song_queue.py            # 스마트 셔플 큐
 core/playlist_db.py           # 플레이리스트 북마크 저장소 (SQLite, playlists.db)

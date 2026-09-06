@@ -14,12 +14,27 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from core import nai_client, prompt_writer
+from core import image_settings_db, nai_client, prompt_writer
 from core.error_notify import notify_error
 from core.nai_client import NaiAuthError, NaiError, NaiRateLimitError
 from core.prompt_writer import PromptRefused, PromptWriterError
 
 NAI_TOKEN = os.getenv("NAI_TOKEN")
+
+
+class ImageChannelRestricted(app_commands.CheckFailure):
+    def __init__(self, channel_id: int):
+        self.channel_id = channel_id
+        super().__init__(f"이미지 생성은 <#{channel_id}> 채널에서만 가능합니다.")
+
+
+async def _check_image_channel(interaction: discord.Interaction) -> bool:
+    if interaction.guild is None:
+        return True
+    channel_id = await image_settings_db.async_get_channel(interaction.client.loop, interaction.guild.id)
+    if channel_id is None or interaction.channel.id == channel_id:
+        return True
+    raise ImageChannelRestricted(channel_id)
 
 SIZE_CHOICES = [
     app_commands.Choice(name="세로 832x1216 (기본)", value="portrait"),
@@ -62,6 +77,7 @@ class ImageGen(commands.Cog):
     )
     @app_commands.choices(비율=SIZE_CHOICES, 모델=MODEL_CHOICES, 등급=RATING_CHOICES)
     @app_commands.checks.cooldown(1, 15.0, key=lambda i: i.user.id)
+    @app_commands.check(_check_image_channel)
     async def generate(
         self,
         interaction: discord.Interaction,
@@ -153,6 +169,11 @@ class ImageGen(commands.Cog):
                 f"⏳ 너무 자주 요청했습니다. {error.retry_after:.0f}초 후 다시 시도하세요.", ephemeral=True
             )
             return
+        if isinstance(error, ImageChannelRestricted):
+            await interaction.response.send_message(
+                f"⚠️ 이미지 생성은 <#{error.channel_id}> 채널에서만 가능합니다.", ephemeral=True
+            )
+            return
         print(f"❌ [ERROR] /그림생성 처리 중 오류: {error}")
         await notify_error(self.bot, interaction.guild_id, f"/그림생성 처리 중 오류: {error}")
         if interaction.response.is_done():
@@ -175,6 +196,20 @@ class ImageGen(commands.Cog):
         await interaction.followup.send(
             f"💰 Anlas 잔액: **{info['total']}** (고정 {info['fixed']} + 구매 {info['purchased']})\n{opus_text}"
         )
+
+    @app_commands.command(name="그림채널설정", description="현재 채널을 이미지 생성 전용 채널로 지정합니다.")
+    @app_commands.guild_only()
+    async def set_image_channel(self, interaction: discord.Interaction):
+        await image_settings_db.async_set_channel(self.bot.loop, interaction.guild.id, interaction.channel.id)
+        await interaction.response.send_message(
+            f"✅ 이제 이 서버에서는 {interaction.channel.mention} 에서만 `/그림생성`을 사용할 수 있습니다.",
+        )
+
+    @app_commands.command(name="그림채널설정해제", description="이미지 생성 채널 제한을 해제합니다 (아무 채널에서나 사용 가능).")
+    @app_commands.guild_only()
+    async def clear_image_channel(self, interaction: discord.Interaction):
+        await image_settings_db.async_clear_channel(self.bot.loop, interaction.guild.id)
+        await interaction.response.send_message("✅ 채널 제한을 해제했습니다. 이제 아무 채널에서나 `/그림생성`을 사용할 수 있습니다.")
 
 
 async def setup(bot: commands.Bot):
