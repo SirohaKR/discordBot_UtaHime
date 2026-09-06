@@ -19,8 +19,9 @@
 
 ## 기능 — 이미지 생성 (NovelAI + Claude)
 
-- `/그림생성 프롬프트:<설명> [네거티브] [비율] [모델] [등급] [시드] [태그모드]` — 원하는 그림을 문장으로 설명하면(한국어 가능) Claude가 NovelAI Danbooru 태그로 자동 변환한 뒤 이미지 1장을 생성해 임베드로 전송. 입력 설명과 변환된 태그를 함께 보여줘서 태그 문법을 몰라도 쓸 수 있음.
+- `/그림생성 프롬프트:<설명> [네거티브] [비율] [모델] [등급] [시드] [태그모드] [스타일참조] [스타일강도]` — 원하는 그림을 문장으로 설명하면(한국어 가능) Claude가 NovelAI Danbooru 태그로 자동 변환한 뒤 이미지 1장을 생성해 임베드로 전송. 입력 설명과 변환된 태그를 함께 보여줘서 태그 문법을 몰라도 쓸 수 있음.
   - `태그모드:True`로 켜면 AI 변환 없이 입력한 텍스트를 태그 그대로 사용 (태그 문법을 아는 사람용).
+  - `스타일참조`에 이미지를 첨부하면 그 화풍/분위기를 새 그림에 입히는 Vibe Transfer 적용 (`스타일강도`로 세기 조절, 기본 0.6). 같은 이미지+모델 조합은 자동으로 캐싱돼서(`core/vibe_cache_db.py`) 재사용 시 Anlas가 추가로 안 나감 — 처음 인코딩할 때만 2 Anlas 소모.
   - `ANTHROPIC_API_KEY`가 없으면 자동 변환 없이 입력값을 그대로 태그로 사용(경고 메시지와 함께) — 없어도 기본 생성 기능은 동작함.
   - 서버 공용 계정(`.env`의 `NAI_TOKEN`) 하나로 전체 유저 요청을 처리하는 구조. 동시 요청은 자동으로 한 번에 하나씩 순서대로 처리됨.
   - 유저별 15초 쿨다운(스팸 방지).
@@ -104,6 +105,7 @@ cogs/image.py                # NovelAI 이미지 생성 (/그림생성, /애나�
 core/nai_client.py            # NovelAI 이미지 생성 API 클라이언트 (aiohttp)
 core/prompt_writer.py          # 자연어 설명 -> Danbooru 태그 변환 (Claude Haiku 4.5)
 core/image_settings_db.py      # 이미지 생성 전용 채널 설정 저장소 (SQLite, playlists.db 공유)
+core/vibe_cache_db.py          # Vibe Transfer 인코딩 결과 캐시 (SQLite, playlists.db 공유)
 core/guild_settings_db.py     # 서버별 설정 저장소 (SQLite, 웹페이지와 공유)
 core/song_queue.py            # 스마트 셔플 큐
 core/playlist_db.py           # 플레이리스트 북마크 저장소 (SQLite, playlists.db)

@@ -6,6 +6,7 @@ naia.py가 정리해둔 비공식 API 스펙을 discord.py(asyncio/aiohttp) 환�
 공식 문서화된 API가 아니므로 NovelAI 쪽 변경 시 깨질 수 있다.
 """
 
+import base64
 import io
 import zipfile
 from dataclasses import dataclass
@@ -14,6 +15,7 @@ from typing import Optional
 import aiohttp
 
 GENERATE_URL = "https://image.novelai.net/ai/generate-image"
+ENCODE_VIBE_URL = "https://image.novelai.net/ai/encode-vibe"
 SUBSCRIPTION_URL = "https://api.novelai.net/user/subscription"
 
 MODELS = {
@@ -90,6 +92,9 @@ def _build_payload(
     sampler: str,
     scheduler: str,
     apply_quality_tags: bool,
+    vibe_encoded: Optional[str] = None,
+    vibe_strength: float = 0.6,
+    vibe_information_extracted: float = 1.0,
 ) -> dict:
     full_prompt = f"{RATING_TAGS.get(rating, RATING_TAGS['sensitive'])}, {prompt}"
     if apply_quality_tags:
@@ -130,6 +135,13 @@ def _build_payload(
             "legacy_uc": False,
         },
     }
+
+    if vibe_encoded:
+        parameters["reference_image_multiple"] = [vibe_encoded]
+        parameters["reference_strength_multiple"] = [vibe_strength]
+        parameters["reference_information_extracted_multiple"] = [vibe_information_extracted]
+        parameters["normalize_reference_strength_multiple"] = True
+
     return {"input": full_prompt, "model": model, "action": "generate", "parameters": parameters}
 
 
@@ -149,6 +161,9 @@ async def generate_image(
     sampler: str = "k_euler_ancestral",
     scheduler: str = "native",
     apply_quality_tags: bool = True,
+    vibe_encoded: Optional[str] = None,
+    vibe_strength: float = 0.6,
+    vibe_information_extracted: float = 1.0,
 ) -> GenerationResult:
     payload = _build_payload(
         prompt=prompt,
@@ -164,6 +179,9 @@ async def generate_image(
         sampler=sampler,
         scheduler=scheduler,
         apply_quality_tags=apply_quality_tags,
+        vibe_encoded=vibe_encoded,
+        vibe_strength=vibe_strength,
+        vibe_information_extracted=vibe_information_extracted,
     )
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
@@ -183,6 +201,35 @@ async def generate_image(
     with zipfile.ZipFile(io.BytesIO(content)) as zf:
         png_bytes = zf.read(zf.infolist()[0])
     return GenerationResult(png_bytes=png_bytes, seed=seed)
+
+
+async def encode_vibe(
+    token: str, image_bytes: bytes, model: str = "nai-diffusion-4-5-full", information_extracted: float = 1.0
+) -> str:
+    """참조 이미지를 Vibe Transfer용으로 인코딩한다.
+
+    결과는 비결정적이라 매번 값이 다르지만, 같은 이미지+모델+information_extracted 조합에는
+    재사용 가능 — 호출 1회당 2 Anlas가 소모되므로 호출부에서 반드시 캐싱해야 한다.
+    """
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    payload = {
+        "image": base64.b64encode(image_bytes).decode(),
+        "information_extracted": information_extracted,
+        "model": model,
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            ENCODE_VIBE_URL, headers=headers, json=payload, timeout=aiohttp.ClientTimeout(total=60)
+        ) as resp:
+            if resp.status == 401:
+                raise NaiAuthError("NovelAI 인증에 실패했습니다. `.env`의 NAI_TOKEN을 확인하세요.")
+            if resp.status == 429:
+                raise NaiRateLimitError("NovelAI 요청이 너무 잦습니다. 잠시 후 다시 시도하세요.")
+            if resp.status != 200:
+                text = await resp.text()
+                raise NaiError(f"Vibe 인코딩 실패 (HTTP {resp.status}): {text[:300]}")
+            content = await resp.read()
+    return base64.b64encode(content).decode()
 
 
 async def get_anlas(token: str) -> dict:

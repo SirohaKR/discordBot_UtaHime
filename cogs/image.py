@@ -14,7 +14,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from core import image_settings_db, nai_client, prompt_writer
+from core import image_settings_db, nai_client, prompt_writer, vibe_cache_db
 from core.error_notify import notify_error
 from core.nai_client import NaiAuthError, NaiError, NaiRateLimitError
 from core.prompt_writer import PromptRefused, PromptWriterError
@@ -74,6 +74,8 @@ class ImageGen(commands.Cog):
         등급="이미지 수위",
         시드="재현하고 싶은 시드값 (비우면 랜덤)",
         태그모드="켜면 AI 변환 없이 프롬프트를 Danbooru 태그 그대로 사용 (태그를 아는 사람용)",
+        스타일참조="화풍/분위기를 참고할 이미지 (Vibe Transfer, 선택). 같은 이미지 재사용 시 캐시돼서 Anlas 안 나감",
+        스타일강도="스타일참조를 얼마나 강하게 반영할지 (0.0~1.0, 기본 0.6)",
     )
     @app_commands.choices(비율=SIZE_CHOICES, 모델=MODEL_CHOICES, 등급=RATING_CHOICES)
     @app_commands.checks.cooldown(1, 15.0, key=lambda i: i.user.id)
@@ -88,6 +90,8 @@ class ImageGen(commands.Cog):
         등급: app_commands.Choice[str] = None,
         시드: int = 0,
         태그모드: bool = False,
+        스타일참조: discord.Attachment = None,
+        스타일강도: app_commands.Range[float, 0.0, 1.0] = 0.6,
     ):
         if not NAI_TOKEN:
             await interaction.response.send_message(
@@ -114,6 +118,27 @@ class ImageGen(commands.Cog):
             except PromptWriterError as e:
                 prompt_note = f"⚠️ 프롬프트 자동 변환 실패({e}) — 입력값을 태그로 그대로 사용합니다."
 
+        vibe_encoded = None
+        vibe_note = None
+        if 스타일참조:
+            if not (스타일참조.content_type or "").startswith("image/"):
+                await interaction.followup.send("❌ 스타일참조는 이미지 파일만 가능합니다.")
+                return
+            try:
+                image_bytes = await 스타일참조.read()
+                image_hash = vibe_cache_db.image_hash(image_bytes)
+                cached = await vibe_cache_db.async_get_cached(self.bot.loop, image_hash, model, 1.0)
+                if cached:
+                    vibe_encoded = cached
+                    vibe_note = "🖼️ 스타일 참조 적용 (캐시된 인코딩 재사용, Anlas 소모 없음)"
+                else:
+                    vibe_encoded = await nai_client.encode_vibe(NAI_TOKEN, image_bytes, model=model)
+                    await vibe_cache_db.async_save_cached(self.bot.loop, image_hash, model, 1.0, vibe_encoded)
+                    vibe_note = "🖼️ 스타일 참조 적용 (새로 인코딩, Anlas 2 소모)"
+            except NaiError as e:
+                await interaction.followup.send(f"❌ 스타일참조 인코딩 실패: {e}")
+                return
+
         if self._lock.locked():
             await interaction.followup.send("⏳ 다른 요청을 처리 중이라 순서를 기다립니다...")
 
@@ -128,6 +153,8 @@ class ImageGen(commands.Cog):
                     height=height,
                     rating=rating,
                     seed=시드,
+                    vibe_encoded=vibe_encoded,
+                    vibe_strength=스타일강도,
                 )
             except NaiAuthError as e:
                 await interaction.followup.send(f"❌ {e}")
@@ -153,6 +180,8 @@ class ImageGen(commands.Cog):
             embed.add_field(name="태그", value=f"```{final_prompt[:500]}```", inline=False)
         if prompt_note:
             embed.add_field(name="안내", value=prompt_note, inline=False)
+        if vibe_note:
+            embed.add_field(name="스타일참조", value=f"{vibe_note} (강도 {스타일강도})", inline=False)
         embed.add_field(name="비율", value=f"{width}x{height}", inline=True)
         embed.add_field(name="모델", value=nai_client.MODELS.get(model, model), inline=True)
         embed.add_field(name="등급", value=등급.name if 등급 else "약한 선정성 (기본)", inline=True)
