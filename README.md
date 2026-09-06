@@ -17,6 +17,19 @@
 - **에러 알림**: 재생 실패, 처리되지 않은 예외 등을 지정한 디스코드 채널(또는 오너 DM)로 알림.
 - **yt-dlp 자동 업데이트**: 주 1회 자동으로 yt-dlp를 최신 버전으로 업데이트하고, 버전이 바뀌면 안전하게 재시작(Docker의 `restart: unless-stopped`가 재기동). `!업데이트`로 즉시 수동 실행도 가능(봇 오너 전용).
 
+## 기능 — 이미지 생성 (NovelAI + Claude)
+
+- `/그림생성 프롬프트:<설명> [네거티브] [비율] [모델] [등급] [시드] [태그모드]` — 원하는 그림을 문장으로 설명하면(한국어 가능) Claude가 NovelAI Danbooru 태그로 자동 변환한 뒤 이미지 1장을 생성해 임베드로 전송. 입력 설명과 변환된 태그를 함께 보여줘서 태그 문법을 몰라도 쓸 수 있음.
+  - `태그모드:True`로 켜면 AI 변환 없이 입력한 텍스트를 태그 그대로 사용 (태그 문법을 아는 사람용).
+  - `ANTHROPIC_API_KEY`가 없으면 자동 변환 없이 입력값을 그대로 태그로 사용(경고 메시지와 함께) — 없어도 기본 생성 기능은 동작함.
+  - 서버 공용 계정(`.env`의 `NAI_TOKEN`) 하나로 전체 유저 요청을 처리하는 구조. 동시 요청은 자동으로 한 번에 하나씩 순서대로 처리됨.
+  - 유저별 15초 쿨다운(스팸 방지).
+  - 기본 해상도/스텝(28)은 전부 NovelAI 무료 티어 범위(≤1,048,576px) 안에서만 제공 — Opus 등 구독 플랜의 정액 요금 안에서 해결되고 Anlas가 추가로 빠지지 않음.
+- `/애나니스` — Anlas(크레딧) 잔액과 Opus 구독 여부 확인.
+- NovelAI 토큰 발급: NovelAI 로그인 → 좌측 톱니바퀴(User Settings) → Account 탭 → **Get Persistent API Token** → 복사해서 `.env`의 `NAI_TOKEN`에 붙여넣기.
+- Claude API 키 발급(선택, 자동 프롬프트 변환용): [console.anthropic.com](https://console.anthropic.com) 가입 → 결제수단 등록 → API Keys에서 발급 → `.env`의 `ANTHROPIC_API_KEY`에 붙여넣기. Haiku 4.5 기준 이미지 1장당 약 $0.001~0.002 추가 비용(NovelAI 구독료와 별개, Anthropic 쪽에 종량제로 청구).
+- 참고: NovelAI 연동은 아카라이브에 공개된 "Novel AI 이미지 생성 도구 개발용 API 레퍼런스"(DNT-LAB/NAIA_novel_ai_entrypoint)의 비공식 API 스펙을 기반으로 구현됨 (`core/nai_client.py`). 프롬프트 자동 변환은 `core/prompt_writer.py`.
+
 ## 명령어
 
 접두사는 `!` 이며, 명령어 메시지는 실행 후 자동 삭제됩니다. 아래 명령어들은 모두 `/`(슬래시) 명령어로도 동일하게 사용할 수 있습니다.
@@ -85,6 +98,9 @@ python web/app.py
 ```
 main.py                     # 부트스트랩 (.env 로드 → cog 로드 → 슬래시 동기화 → 자동 업데이트 태스크 → 봇 시작)
 cogs/music.py                # 음악 재생 + 플레이리스트 북마크 기능
+cogs/image.py                # NovelAI 이미지 생성 (/그림생성, /애나니스)
+core/nai_client.py            # NovelAI 이미지 생성 API 클라이언트 (aiohttp)
+core/prompt_writer.py          # 자연어 설명 -> Danbooru 태그 변환 (Claude Haiku 4.5)
 core/guild_settings_db.py     # 서버별 설정 저장소 (SQLite, 웹페이지와 공유)
 core/song_queue.py            # 스마트 셔플 큐
 core/playlist_db.py           # 플레이리스트 북마크 저장소 (SQLite, playlists.db)

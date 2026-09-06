@@ -28,6 +28,7 @@ logging.getLogger("discord.player").setLevel(logging.INFO)
 # 새 기능(cog)을 추가할 때 여기에 모듈 경로만 추가하면 됨.
 INITIAL_EXTENSIONS = [
     "cogs.music",
+    "cogs.image",
 ]
 
 # yt-dlp는 유튜브 정책 변화에 맞춰 자주 패치되므로, 주기적으로 자동 업데이트한다.
