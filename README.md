@@ -29,6 +29,8 @@
 - `/애나니스` — Anlas(크레딧) 잔액과 Opus 구독 여부 확인.
 - `/그림채널설정` — 현재 채널을 이미지 생성 전용 채널로 지정. 지정 후에는 그 채널에서만 `/그림생성` 사용 가능(다른 채널에서 시도하면 안내 메시지).
 - `/그림채널설정해제` — 채널 제한 해제 (아무 채널에서나 다시 사용 가능).
+- `/프롬프트채널설정` — 현재 채널을 **프롬프트 추천 채널**로 지정. 지정 후 그 채널에 명령어 없이 그냥 문장(또는 이미지 첨부)만 적으면 AI가 Danbooru 태그를 추천해서 답장함. 이미지만 올려도("이런 느낌으로 그리고 싶어") 그 이미지를 보고 태그를 뽑아줌. 유저별 5초 쿨다운.
+- `/프롬프트채널설정해제` — 프롬프트 추천 채널 지정 해제.
 - NovelAI 토큰 발급: NovelAI 로그인 → 좌측 톱니바퀴(User Settings) → Account 탭 → **Get Persistent API Token** → 복사해서 `.env`의 `NAI_TOKEN`에 붙여넣기.
 - Claude API 키 발급(선택, 자동 프롬프트 변환용): [console.anthropic.com](https://console.anthropic.com) 가입 → 결제수단 등록 → API Keys에서 발급 → `.env`의 `ANTHROPIC_API_KEY`에 붙여넣기. Haiku 4.5 기준 이미지 1장당 약 $0.001~0.002 추가 비용(NovelAI 구독료와 별개, Anthropic 쪽에 종량제로 청구).
 - 참고: NovelAI 연동은 아카라이브에 공개된 "Novel AI 이미지 생성 도구 개발용 API 레퍼런스"(DNT-LAB/NAIA_novel_ai_entrypoint)의 비공식 API 스펙을 기반으로 구현됨 (`core/nai_client.py`). 프롬프트 자동 변환은 `core/prompt_writer.py`.
@@ -101,10 +103,12 @@ python web/app.py
 ```
 main.py                     # 부트스트랩 (.env 로드 → cog 로드 → 슬래시 동기화 → 자동 업데이트 태스크 → 봇 시작)
 cogs/music.py                # 음악 재생 + 플레이리스트 북마크 기능
-cogs/image.py                # NovelAI 이미지 생성 (/그림생성, /애나니스)
+cogs/image.py                # NovelAI 이미지 생성 (/그림생성, /애나니스, /그림채널설정)
+cogs/prompt_suggest.py         # 프롬프트 추천 전용 채널 (/프롬프트채널설정)
 core/nai_client.py            # NovelAI 이미지 생성 API 클라이언트 (aiohttp)
-core/prompt_writer.py          # 자연어 설명 -> Danbooru 태그 변환 (Claude Haiku 4.5)
+core/prompt_writer.py          # 자연어 설명(+이미지) -> Danbooru 태그 변환 (Claude Haiku 4.5, 비전 지원)
 core/image_settings_db.py      # 이미지 생성 전용 채널 설정 저장소 (SQLite, playlists.db 공유)
+core/prompt_channel_db.py      # 프롬프트 추천 전용 채널 설정 저장소 (SQLite, playlists.db 공유)
 core/vibe_cache_db.py          # Vibe Transfer 인코딩 결과 캐시 (SQLite, playlists.db 공유)
 core/guild_settings_db.py     # 서버별 설정 저장소 (SQLite, 웹페이지와 공유)
 core/song_queue.py            # 스마트 셔플 큐

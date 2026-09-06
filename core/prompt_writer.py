@@ -5,6 +5,7 @@ Claude Haiku 4.5를 사용해서, 태그 문법을 모르는 사람도 원하는
 설명하기만 하면 /그림생성이 알아서 태그를 짜서 생성하도록 만든다.
 """
 
+import base64
 import os
 
 import anthropic
@@ -13,6 +14,8 @@ MODEL = "claude-haiku-4-5"
 
 SYSTEM_PROMPT = """당신은 NovelAI(Danbooru 태그 체계) 이미지 생성을 위한 프롬프트 작성 보조입니다.
 사용자가 한국어 또는 영어로 자유롭게 설명한 이미지를, NovelAI에 바로 넣을 수 있는 영어 Danbooru 스타일 태그 목록으로 변환하세요.
+이미지가 함께 첨부된 경우, 그 이미지 속 캐릭터의 생김새/포즈/구도/화풍을 관찰해서 태그로 표현하세요. 텍스트 설명도 같이 있으면
+그 설명을 우선 반영하고(예: "이 캐릭터인데 머리색만 빨간색으로") 이미지는 참고 자료로 삼으세요.
 
 규칙:
 - 출력은 태그를 콤마(,)로 구분한 한 줄만 출력합니다. 설명, 따옴표, 번호 매기기, 마크다운 금지.
@@ -40,9 +43,24 @@ class PromptRefused(RuntimeError):
     """요청이 정책상 거부된 경우."""
 
 
-async def write_tags(description: str) -> str:
+async def write_tags(description: str = "", image_bytes: bytes = None, image_media_type: str = "image/png") -> str:
     if not os.getenv("ANTHROPIC_API_KEY"):
         raise PromptWriterError("ANTHROPIC_API_KEY가 설정되지 않았습니다.")
+
+    if image_bytes:
+        content = [
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": image_media_type,
+                    "data": base64.standard_b64encode(image_bytes).decode("utf-8"),
+                },
+            },
+            {"type": "text", "text": description or "첨부된 이미지를 보고 어울리는 태그를 만들어줘."},
+        ]
+    else:
+        content = description
 
     client = _get_client()
     try:
@@ -50,7 +68,7 @@ async def write_tags(description: str) -> str:
             model=MODEL,
             max_tokens=300,
             system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": description}],
+            messages=[{"role": "user", "content": content}],
         )
     except anthropic.AuthenticationError as e:
         raise PromptWriterError("Claude 인증 실패. ANTHROPIC_API_KEY를 확인하세요.") from e
