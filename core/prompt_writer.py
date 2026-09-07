@@ -63,64 +63,6 @@ standing, outdoors"처럼 영어 단어/구가 콤마로 나열되어 있고 한
   만들지 말고 "REFUSED: <한 줄 이유>"만 출력하세요.
 """
 
-EDIT_SYSTEM_PROMPT = """당신은 이미 만들어진 NovelAI(Danbooru 태그) 프롬프트를 사용자의 요청에 맞게 고치기
-위한 "변경사항 분석기"입니다. 직접 새 태그 목록을 통째로 작성하지 않습니다 — 무엇을 추가하고(ADD) 무엇을
-제거할지(REMOVE)만 정확히 짚어주면, 시스템이 그 지시를 그대로 기존 목록에 기계적으로 적용합니다. 이 방식
-덕분에 당신이 실수해도(예: 판단을 잘못해도) 최악의 경우가 "태그 하나를 잘못 넣거나 못 지움" 정도지, 목록
-전체가 사라지는 사고는 구조적으로 일어나지 않습니다. 이 역할 분담을 정확히 지켜주세요.
-
-입력으로 [현재 태그 목록]과 [수정 요청]을 받습니다. 사용자는 마치 대화하듯 자연스럽게 바꾸고 싶은 부분만
-말합니다 (예: "머리 보라색으로, 눈 검은색에 하트동공 박히고 원피스를 흰 블라우스로 바꿔줘").
-
-ADD/REMOVE 판단 규칙:
-- 속성을 다른 값으로 "교체"하는 요청(예: "머리 보라색으로")은: REMOVE에 옛날 값을 [현재 태그 목록]에
-  있는 문구 그대로 적고("silver hair"), ADD에 새 값을 적으세요("purple hair"). 색이 여러 군데(머리/눈/
-  의상)에 있으면 사용자가 지목한 대상의 태그만 정확히 골라서 REMOVE/ADD 하고, 언급 안 한 다른 색/속성은
-  REMOVE에 절대 넣지 마세요.
-- 순수 추가 요청(예: "하트동공도 추가해줘", 새로운 포즈/소품/배경 추가)은 ADD에만 넣고 REMOVE는
-  비우세요.
-- 순수 제거 요청("~는 빼줘/없애줘")이고 그 대상이 [현재 태그 목록]에 있으면 REMOVE에 그 문구를 그대로
-  적으세요. ADD는 필요 없으면 비우세요.
-- 의상 종류/색이 바뀌면 관련 태그(소재/색/디테일 포함)를 전부 REMOVE하고 새 디테일을 ADD하세요. 새
-  의상 설명이 부족하면 어울리는 디테일(소재/장식 등)을 ADD에 그럴듯하게 채워 넣으세요.
-- 요청에서 언급하지 않은 태그(포즈/배경/조명/구도/화질 태그 등)는 REMOVE에 절대 넣지 마세요 — 그대로
-  유지되는 게 기본값입니다.
-- REMOVE에 적는 문구는 [현재 태그 목록]에 있는 그대로 정확히 옮겨 적어야 시스템이 찾아서 지울 수
-  있습니다 (대소문자는 상관없지만 단어 자체가 다르면 못 찾습니다) — 있지도 않은 태그를 지어내서 REMOVE에
-  넣지 마세요.
-- 등장인물이 정확히 한 명인데(1girl/1boy 등) [현재 태그 목록]에 "solo"가 없으면 ADD에 "solo"를
-  추가하세요. 이게 없으면 정체불명의 다른 사람 손/팔이 화면에 환각으로 나오는 경우가 흔합니다.
-
-네거티브 판단 (중요 — 이걸 잘못하면 사용자가 원치 않는 태그가 억제됩니다):
-- 사용자가 명시적으로 "빼줘/없애줘/제거해줘/지워줘/안 나오게 해줘" 등으로 뭔가를 없애달라고 한 경우에만,
-  그 대상을 네거티브 후보로 올리세요. 예: "수국은 지워줘" -> REMOVE에 "hydrangea"류 태그, NEGATIVE에도
-  같은 태그 추가.
-- 없애달라는 대상이 [현재 태그 목록]에 애초에 없는 경우도 흔합니다 — 사용자가 태그로 넣은 적 없는데
-  결과 이미지에 원치 않게 나온 생성 아티팩트(예: 정체불명의 남의 손/팔)를 말하는 겁니다. 이 경우 REMOVE는
-  비우되(지울 태그가 없으므로), NEGATIVE에는 반드시 관련 태그를 추가하세요. 예: "타인의 손 제거" ->
-  REMOVE는 비움, NEGATIVE에 "another person's hand, extra hand, disembodied hand, wrist grab" 추가.
-  "네거티브에 넣을 게 없다"고 판단해서 빈 줄로 넘기지 마세요 — 이런 요청은 거의 항상 네거티브 대상이
-  있습니다.
-- 속성을 다른 값으로 "교체"한 경우, 스타일 참조 이미지가 있을 때 예전 값이 다시 섞여 들어오는 걸 막기
-  위해 REMOVE에 넣은 그 옛날 값을 NEGATIVE 후보에도 추가하세요.
-- 절대 네거티브 후보에 넣으면 안 되는 경우: 태그 표현을 더 구체화/보강했을 뿐 같은 대상을 계속 그리는
-  경우입니다. 예를 들어 "세일러복은 새하얘"는 REMOVE에 "sailor uniform"을 넣고 ADD에 "white sailor
-  uniform"을 넣는 것이지, "sailor uniform"이 사라지는 게 아니므로 NEGATIVE에 넣으면 절대 안 됩니다.
-  새로 ADD되는 요소 자체도 NEGATIVE에 넣지 마세요. 애매하면 NEGATIVE에 넣지 않는 쪽을 택하세요.
-
-출력 규칙:
-- 정확히 세 줄을 출력하세요. 다른 설명, 따옴표, 번호 매기기, 마크다운 절대 금지.
-  1번째 줄: "ADD: " 로 시작, 추가할 태그를 콤마(,)로 나열 (없으면 "ADD: "만 쓰고 뒤에 아무것도 안 씀).
-  2번째 줄: "REMOVE: " 로 시작, [현재 태그 목록]에서 그대로 옮겨 적은 제거 대상 태그를 콤마로 나열
-  (없으면 "REMOVE: "만 씀).
-  3번째 줄: "NEGATIVE: " 로 시작, 네거티브 후보를 콤마로 나열 (없으면 "NEGATIVE: "만 씀).
-  세 줄 다 항상 출력해야 합니다 (내용이 비어도 접두사 줄 자체는 출력).
-- rating 태그나 masterpiece 같은 품질 태그는 ADD에 넣지 마세요 (시스템이 별도 처리).
-- 실존 인물을 특정한 모습으로 바꿔달라는 요청이거나, 미성년자로 읽히는 캐릭터를 성적으로 묘사하도록 만드는
-  수정 요청이면 아무것도 바꾸지 말고 "REFUSED: <한 줄 이유>"만 출력하세요 (이 경우엔 한 줄만, ADD/REMOVE/
-  NEGATIVE 형식 무시).
-"""
-
 IMAGE_READY_MARKER = "[[IMAGE_READY]]"
 
 # 채팅 채널 전용 서버사이드 도구. 클라이언트 쪽 실행 루프가 필요 없는 Anthropic 호스팅 도구라
@@ -151,7 +93,7 @@ CHAT_SYSTEM_PROMPT = f"""당신은 "시로챤넬"의 서포트 AI "란다"입니
   일시정지/스킵/셔플/반복/대기열 보기/정지 조작.
 - 🎨 이미지 생성: `/그림생성`(문장으로 설명하면 태그로 자동 변환해서 NovelAI로 그림 생성, 비율/모델/
   등급/시드/태그모드/스타일참조 등 옵션), `/애나니스`(크레딧 잔액). 결과에는 프롬프트 복사/설정 복사/
-  다시 생성/수정하기 버튼이 붙고, 결과별로 스레드가 자동 생성됨.
+  다시 생성 버튼이 붙고, 결과별로 스레드가 자동 생성됨.
 - 💬 프롬프트 추천 채널: 지정 채널에 문장이나 이미지를 올리면 태그를 추천해줌.
 - 🗨️ 자유 채팅(당신 자신): 지금 이 대화 기능. 그림 아이디어를 나누다가 충분히 구체화되면 그림 생성
   버튼이 답장에 붙습니다. 이미지를 첨부하면 그 화풍을 스타일 참조로 기억해둡니다.
@@ -283,48 +225,6 @@ async def write_tags(description: str = "", image_bytes: bytes = None, image_med
         content = description
 
     return await _ask_claude(SYSTEM_PROMPT, [{"role": "user", "content": content}])
-
-
-def _parse_tag_list(tags: str) -> list:
-    return [t.strip() for t in tags.split(",") if t.strip()]
-
-
-def _parse_diff_line(lines: list, prefix: str) -> str:
-    for line in lines:
-        if line.upper().startswith(prefix):
-            return line.split(":", 1)[1].strip() if ":" in line else ""
-    return ""
-
-
-async def edit_tags(current_tags: str, instruction: str) -> tuple:
-    """기존 태그 목록을 대화형 수정 요청에 맞게 고친다 (덧붙이기가 아니라 속성 치환).
-
-    "머리 보라색으로, 눈 검은색에 하트동공 박고 블라우스 흰색으로" 같은 짧은 지시를 현재 태그 목록에
-    반영한다. Claude에게 전체 목록을 다시 쓰게 하지 않고 ADD/REMOVE만 짚어달라고 한 뒤, 실제 목록
-    조작(제거/추가)은 이 함수가 코드로 직접 수행한다 — Claude가 판단을 잘못해도 태그 목록 전체가
-    사라지는 사고는 구조적으로 나지 않는다 (REMOVE에 없는 문구는 그냥 무시되고 나머지는 100% 보존됨).
-
-    반환값은 (새_태그_목록, 네거티브_후보) 튜플. 네거티브_후보는 "빼줘/없애줘"류 명시적 제거 요청이나
-    교체된 속성의 이전 값만 담기고, 색상 지정처럼 속성을 구체화만 한 경우는 안 담긴다 — 이 판단은
-    문자열 비교가 아니라 수정 요청의 맥락을 Claude가 직접 판단해서 결정한다 (EDIT_SYSTEM_PROMPT 참고).
-    """
-    content = f"[현재 태그 목록]\n{current_tags}\n\n[수정 요청]\n{instruction}"
-    # 기존 태그를 실수로 날려먹는 사고를 줄이기 위해 effort를 기본값(high)보다 높여서 더 신중하게
-    # 판단하게 한다 (다만 이제 핵심 안전장치는 ADD/REMOVE 방식 자체 — effort는 보조 수단).
-    raw = await _ask_claude(EDIT_SYSTEM_PROMPT, [{"role": "user", "content": content}], effort="xhigh")
-
-    lines = [line.strip() for line in raw.splitlines() if line.strip()]
-    add_text = _parse_diff_line(lines, "ADD:")
-    remove_text = _parse_diff_line(lines, "REMOVE:")
-    negative_additions = _parse_diff_line(lines, "NEGATIVE:")
-
-    current_list = _parse_tag_list(current_tags)
-    remove_set = {t.lower() for t in _parse_tag_list(remove_text)}
-    kept = [t for t in current_list if t.lower() not in remove_set]
-    add_list = _parse_tag_list(add_text)
-    new_tags = ", ".join(kept + add_list)
-
-    return new_tags, negative_additions
 
 
 async def chat_reply(

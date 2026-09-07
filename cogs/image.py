@@ -5,8 +5,8 @@
 (NAI API가 동시 요청을 거부/오류 처리하는 경우가 있어 참고 문서에서 권장하는 방식),
 유저별 쿨다운으로 스팸을 막는다.
 
-생성 결과에는 버튼(프롬프트 복사/설정 복사/다시 생성/수정하기)이 붙어서, 결과가 마음에
-안 들 때 채팅으로 다시 요청하러 갈 필요 없이 그 자리에서 반복 조정할 수 있다.
+생성 결과에는 버튼(프롬프트 복사/설정 복사/다시 생성)이 붙어서, 설정을 다시 옮겨 적을
+필요 없이 그 자리에서 바로 재생성할 수 있다.
 """
 
 import asyncio
@@ -113,89 +113,6 @@ def _build_result_embed(attempt: GenAttempt, requester_display_name: str) -> dis
     return embed
 
 
-class EditPromptModal(discord.ui.Modal, title="수정하기"):
-    """전체를 다시 쓰는 대신, 대화하듯 "이 부분만 바꿔줘"라고 지시하면 기존 태그 목록에서
-    충돌하는 속성만 골라 교체한다 (prompt_writer.edit_tags 참고 — 뒤에 이어붙이지 않음)."""
-
-    def __init__(self, cog: "ImageGen", attempt: GenAttempt):
-        super().__init__()
-        self.cog = cog
-        self.attempt = attempt
-        self.instruction_input = discord.ui.TextInput(
-            label="바꾸고 싶은 내용을 말해주세요",
-            style=discord.TextStyle.paragraph,
-            placeholder="예: 머리 보라색으로, 눈 검은색에 하트동공 박고 원피스를 흰 블라우스로 바꿔줘",
-            max_length=1000,
-            required=True,
-        )
-        self.negative_input = discord.ui.TextInput(
-            label="네거티브 (선택, 비우면 기존 값 유지)",
-            style=discord.TextStyle.paragraph,
-            default=attempt.negative[:1000],
-            max_length=1000,
-            required=False,
-        )
-        self.add_item(self.instruction_input)
-        self.add_item(self.negative_input)
-
-    async def on_submit(self, interaction: discord.Interaction):
-        if not self.cog.check_and_hit_button_cooldown(interaction.user.id):
-            await interaction.response.send_message(
-                "⏳ 너무 자주 요청했습니다. 잠시 후 다시 시도하세요.", ephemeral=True
-            )
-            return
-        await interaction.response.defer(thinking=True)
-
-        instruction = str(self.instruction_input.value).strip()
-        try:
-            new_tags, auto_negative = await prompt_writer.edit_tags(self.attempt.used_prompt, instruction)
-        except PromptRefused as e:
-            await interaction.followup.send(f"🚫 요청이 거부되었습니다: {e}")
-            return
-        except PromptWriterError as e:
-            await interaction.followup.send(f"❌ 프롬프트 수정 실패: {e}")
-            return
-
-        # AI 판단만 믿지 않는 안전장치: 태그가 통째로 비거나 절반 넘게 날아갔으면 십중팔구 사고이지
-        # 의도된 수정이 아니다. 그대로 반영하지 말고 원본을 지킨 채 다시 시도하게 안내한다.
-        old_count = len([t for t in self.attempt.used_prompt.split(",") if t.strip()])
-        new_count = len([t for t in new_tags.split(",") if t.strip()])
-        if new_count < max(3, old_count // 2):
-            await interaction.followup.send(
-                "⚠️ 수정 결과가 원본보다 태그가 너무 많이 줄어들어서(사고 방지) 반영하지 않았어요. "
-                "요청을 좀 더 구체적으로 나눠서 다시 시도해주세요.\n"
-                f"(원본 {old_count}개 → 결과 {new_count}개: `{new_tags[:300]}`)",
-                ephemeral=True,
-            )
-            return
-
-        new_negative_input = str(self.negative_input.value).strip()
-        base_negative = new_negative_input or self.attempt.negative
-
-        # 명시적 제거 요청("빼줘"/"없애줘")이나 교체된 속성의 이전 값만 네거티브 후보로 온다 —
-        # "세일러복은 새하얘" 같은 구체화 요청은 Claude가 판단해서 여기 안 들어온다 (edit_tags 참고).
-        note = None
-        if auto_negative:
-            base_negative = f"{base_negative}, {auto_negative}" if base_negative else auto_negative
-            note = f"🚫 네거티브에 자동 추가했어요: `{auto_negative}`"
-            if self.attempt.vibe_note:
-                note += "\n스타일참조를 쓰는 중이라 그래도 이전 색/속성이 계속 보이면 스타일강도를 낮춰보세요."
-
-        new_attempt = replace(
-            self.attempt,
-            requester_id=interaction.user.id,
-            # 이후로는 편집된 태그 자체가 기준이 된다 (원래 자연어 설명은 더 이상 최신 상태를 반영하지 않음).
-            tag_mode=True,
-            description="",
-            used_prompt=new_tags,
-            negative=base_negative,
-            seed=0,  # 내용이 바뀌므로 시드도 새로 뽑는다.
-        )
-        if note:
-            await interaction.followup.send(note, ephemeral=True)
-        await self.cog.run_generation(interaction, new_attempt)
-
-
 class ImageResultView(discord.ui.View):
     def __init__(self, cog: "ImageGen", attempt: GenAttempt):
         super().__init__(timeout=1800)  # 30분 후 버튼 비활성화
@@ -260,10 +177,6 @@ class ImageResultView(discord.ui.View):
         new_attempt = replace(self.attempt, requester_id=interaction.user.id, seed=0)
         await self.cog.run_generation(interaction, new_attempt)
 
-    @discord.ui.button(label="수정하기", emoji="✏️", style=discord.ButtonStyle.success, row=1)
-    async def edit(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(EditPromptModal(self.cog, self.attempt))
-
 
 class ImageGen(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -287,7 +200,7 @@ class ImageGen(commands.Cog):
         """attempt 내용으로 NAI 생성을 수행하고 결과(임베드+버튼)를 followup으로 보낸다.
 
         호출 시점에 interaction은 이미 defer(thinking=True)된 상태여야 한다.
-        슬래시 명령(/그림생성)과 버튼(다시 생성/수정하기)이 모두 이 메서드를 공유한다.
+        슬래시 명령(/그림생성)과 버튼(다시 생성)이 모두 이 메서드를 공유한다.
         """
         if not NAI_TOKEN:
             await interaction.followup.send("⚠️ NAI_TOKEN이 설정되지 않았습니다.", ephemeral=True)
