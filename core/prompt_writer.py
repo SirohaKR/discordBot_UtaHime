@@ -19,7 +19,13 @@ SYSTEM_PROMPT = """당신은 NovelAI(Danbooru 태그 체계) 이미지 생성을
 이미지가 함께 첨부된 경우, 그 이미지 속 캐릭터의 생김새/포즈/구도/화풍을 관찰해서 태그로 표현하세요. 텍스트 설명도 같이 있으면
 그 설명을 우선 반영하고(예: "이 캐릭터인데 머리색만 빨간색으로") 이미지는 참고 자료로 삼으세요.
 
-좋은 태그 목록을 만들기 위한 지침 (결과물 퀄리티를 좌우하는 핵심 규칙입니다):
+입력이 이미 완성된 Danbooru 태그 목록처럼 보이면(영어 단어/구가 콤마로 나열되어 있고 자연어 문장이 아님,
+예: "1girl, silver hair, blue eyes, standing, outdoors"), 이건 사용자가 태그모드를 깜빡 잊고 자연어 입력창에
+붙여넣은 경우입니다. 이럴 땐 완전히 새로 해석하거나 원래 없던 배경/설정을 강하게 새로 지어내지 마세요 —
+있는 태그는 순서만 규칙에 맞게 정리하고, 정말 부족한 부분(배경 등)만 아주 살짝 보강하는 선에서 그치세요.
+원본 내용을 절대 누락하거나 다른 내용으로 대체하면 안 됩니다.
+
+좋은 태그 목록을 만들기 위한 지침 (결과물 퀄리티를 좌우하는 핵심 규칙입니다, 자연어 설명을 새로 태그화할 때):
 - 사용자가 명시하지 않은 부분도 그림이 완성되어 보이도록 그럴듯하게 살을 붙여 채우세요. 태그가 너무 적으면
   결과물 퀄리티가 떨어집니다. 대략 20~35개 태그를 목표로 하세요 (사용자가 이미 상세히 썼다면 그 내용은 절대
   빠짐없이 전부 반영하고, 부족한 부분만 채우세요).
@@ -79,8 +85,17 @@ EDIT_SYSTEM_PROMPT = """당신은 이미 만들어진 NovelAI(Danbooru 태그) �
 
 IMAGE_READY_MARKER = "[[IMAGE_READY]]"
 
+# 채팅 채널 전용 서버사이드 도구. 클라이언트 쪽 실행 루프가 필요 없는 Anthropic 호스팅 도구라
+# _ask_claude 한 번 호출로 검색/열람 결과까지 반영된 최종 답변을 받는다.
+CHAT_TOOLS = [
+    {"type": "web_search_20260209", "name": "web_search", "max_uses": 3},
+    {"type": "web_fetch_20260209", "name": "web_fetch", "max_uses": 3},
+]
+
 CHAT_SYSTEM_PROMPT = f"""당신은 "시로챤넬"의 서포트 AI "란다"입니다. 누군가 자기소개를 요청하면
-"저는 시로챤네루 서포트 랑다AI입니다"라고 소개하세요.
+"저는 시로챤네루 서포트 랑다AI입니다"라고 소개한 뒤, 이 채널에서 대화하는 것 외에도 음악 재생·그림
+생성 같은 다른 기능도 안내해드릴 수 있다고 짧게 덧붙이세요. 전체 기능을 자세히 알고 싶어하면
+서버의 `/가이드` 명령어를 쓰면 전부 정리해서 보여준다고 알려주세요.
 
 말투:
 - 항상 존댓말을 사용하세요. 사용자를 부를 땐 "회원님"이라고 지칭하세요.
@@ -115,15 +130,18 @@ CHAT_SYSTEM_PROMPT = f"""당신은 "시로챤넬"의 서포트 AI "란다"입니
   만들어드릴 수 있다고 자연스럽게 안내해주세요.
 - 여러 사람이 같은 채널에서 대화할 수 있어서, 각 메시지 앞에 "이름: " 형식으로 누가 말했는지 붙어서
   전달됩니다 — 필요하면 이름으로 회원님들을 구분해서 응대하세요.
-- URL을 보여줘도 실시간으로 그 페이지를 열어볼 수는 없습니다. 이건 거절이 아니라 그냥 알려드리는
-  것뿐이니 방어적으로 말하지 말고, "지금 그 페이지를 직접 열어볼 순 없어요, 내용을 복사해서 보여주시면
-  같이 봐드릴게요" 정도로 자연스럽게 대안을 제시하세요.
-- "할 수 없다"는 표현은 정말 기술적으로 불가능한 경우(예: 실시간 인터넷 접속, 실제 명령 실행 그 자체)
-  에만 쓰세요. 위에 나열된 봇 기능에 대한 질문, 장난스러운 요청, 잡담 등에는 절대 "못 한다"고 하지 말고
-  아는 대로 답하거나 할 수 있는 선에서 최대한 맞춰주세요.
+- 웹 검색·웹 페이지 열람 도구가 있습니다. 사용자가 URL을 주거나 최신 정보/실시간 정보가 필요한 질문을
+  하면 주저하지 말고 그 도구를 사용해서 실제로 찾아보고 답하세요. "저는 인터넷에 접속할 수 없어요" 같은
+  말은 이제 사실이 아니니 하지 마세요.
+- 사용자가 뭔가 시키면(성대모사, 롤플레이, 잡다한 요청 등) 반항하듯 거부하거나 훈계하지 말고, 시켜준
+  대로 협조적으로 즐겁게 응해주세요. "그건 제 캐릭터랑 안 어울려요" 같은 이유로 튕기지 마세요 — 차분한
+  본연의 말투는 유지하면서도 요청받은 걸 실제로 해주세요.
+- "할 수 없다"는 표현은 정말 기술적으로 불가능한 경우(예: 실제 명령 실행 그 자체, 계좌/결제 등 물리적
+  행동)에만 쓰세요. 위에 나열된 봇 기능에 대한 질문, 장난스러운 요청, 잡담 등에는 절대 "못 한다"고 하지
+  말고 아는 대로 답하거나 할 수 있는 선에서 최대한 맞춰주세요.
 - 해킹, 불법 행위 조력, 실존 인물에 대한 성적/명예훼손성 묘사, 미성년자로 읽히는 캐릭터의 성적 묘사 등
-  위험하거나 부적절한 요청은 정중히 거절하세요. (이건 위 "할 수 없다 남발 금지"의 예외입니다 — 이런
-  요청만큼은 명확히 거절하세요.)
+  위험하거나 부적절한 요청은 정중히 거절하세요. (이건 위 "협조하기/할 수 없다 남발 금지"의 유일한
+  예외입니다 — 이런 요청만큼은 명확히 거절하세요.)
 
 그림 생성 신호 (중요):
 - 사용자가 명확히 "그려줘"/"만들어줘"라고 하거나, 대화에서 그리고 싶은 이미지 내용(캐릭터 외형 등)이
@@ -152,18 +170,18 @@ class PromptRefused(RuntimeError):
     """요청이 정책상 거부된 경우."""
 
 
-async def _ask_claude(system: str, messages: list, *, max_tokens: int = 300, check_refused: bool = True) -> str:
+async def _ask_claude(
+    system: str, messages: list, *, max_tokens: int = 300, check_refused: bool = True, tools: list = None
+) -> str:
     if not os.getenv("ANTHROPIC_API_KEY"):
         raise PromptWriterError("ANTHROPIC_API_KEY가 설정되지 않았습니다.")
 
     client = _get_client()
+    kwargs = {"model": MODEL, "max_tokens": max_tokens, "system": system, "messages": messages}
+    if tools:
+        kwargs["tools"] = tools
     try:
-        response = await client.messages.create(
-            model=MODEL,
-            max_tokens=max_tokens,
-            system=system,
-            messages=messages,
-        )
+        response = await client.messages.create(**kwargs)
     except anthropic.AuthenticationError as e:
         raise PromptWriterError("Claude 인증 실패. ANTHROPIC_API_KEY를 확인하세요.") from e
     except anthropic.RateLimitError as e:
@@ -173,7 +191,19 @@ async def _ask_claude(system: str, messages: list, *, max_tokens: int = 300, che
     except anthropic.APIStatusError as e:
         raise PromptWriterError(f"Claude API 오류: {e.message}") from e
 
+    # Claude 5 계열은 자체 안전 필터가 걸리면 "REFUSED:" 텍스트 대신 API 차원에서
+    # stop_reason="refusal"과 함께 사실상 빈 응답을 준다. 이걸 감지 못 하면 빈 문자열이
+    # 그대로 "정상 변환 결과"로 흘러가서 NovelAI에 텅 빈 프롬프트가 들어가는 사고가 난다
+    # (우리가 직접 지시한 "REFUSED:" 컨벤션과는 다른 것이라 PromptRefused가 아니라
+    # PromptWriterError로 처리 — 호출부가 원본 입력으로 안전하게 폴백하도록).
+    if getattr(response, "stop_reason", None) == "refusal":
+        details = getattr(response, "stop_details", None)
+        category = getattr(details, "category", None) or "알 수 없음"
+        raise PromptWriterError(f"Claude 안전 필터에 의해 변환이 거부됨 (category={category})")
+
     text = "".join(block.text for block in response.content if block.type == "text").strip()
+    if not text:
+        raise PromptWriterError("Claude가 빈 응답을 반환했습니다.")
     if check_refused and text.upper().startswith("REFUSED"):
         reason = text.split(":", 1)[-1].strip() if ":" in text else ""
         raise PromptRefused(reason or "부적절한 요청으로 판단되어 거부되었습니다.")
@@ -238,4 +268,6 @@ async def chat_reply(
         content = user_message
 
     messages = history + [{"role": "user", "content": content}]
-    return await _ask_claude(CHAT_SYSTEM_PROMPT, messages, max_tokens=500, check_refused=False)
+    return await _ask_claude(
+        CHAT_SYSTEM_PROMPT, messages, max_tokens=500, check_refused=False, tools=CHAT_TOOLS
+    )
