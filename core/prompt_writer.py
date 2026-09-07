@@ -199,34 +199,43 @@ async def _ask_claude(
     kwargs = {"model": MODEL, "max_tokens": max_tokens, "system": system, "messages": messages}
     if tools:
         kwargs["tools"] = tools
-    try:
-        response = await client.messages.create(**kwargs)
-    except anthropic.AuthenticationError as e:
-        raise PromptWriterError("Claude 인증 실패. ANTHROPIC_API_KEY를 확인하세요.") from e
-    except anthropic.RateLimitError as e:
-        raise PromptWriterError("Claude 요청이 너무 잦습니다. 잠시 후 다시 시도하세요.") from e
-    except anthropic.APIConnectionError as e:
-        raise PromptWriterError("Claude API 연결에 실패했습니다.") from e
-    except anthropic.APIStatusError as e:
-        raise PromptWriterError(f"Claude API 오류: {e.message}") from e
 
-    # Claude 5 계열은 자체 안전 필터가 걸리면 "REFUSED:" 텍스트 대신 API 차원에서
-    # stop_reason="refusal"과 함께 사실상 빈 응답을 준다. 이걸 감지 못 하면 빈 문자열이
-    # 그대로 "정상 변환 결과"로 흘러가서 NovelAI에 텅 빈 프롬프트가 들어가는 사고가 난다
-    # (우리가 직접 지시한 "REFUSED:" 컨벤션과는 다른 것이라 PromptRefused가 아니라
-    # PromptWriterError로 처리 — 호출부가 원본 입력으로 안전하게 폴백하도록).
-    if getattr(response, "stop_reason", None) == "refusal":
-        details = getattr(response, "stop_details", None)
-        category = getattr(details, "category", None) or "알 수 없음"
-        raise PromptWriterError(f"Claude 안전 필터에 의해 변환이 거부됨 (category={category})")
+    last_error: Exception = PromptWriterError("알 수 없는 오류")
+    for attempt in range(2):  # API 차원 안전필터 오탐(false positive)은 재시도하면 통과하는 경우가 많다.
+        try:
+            response = await client.messages.create(**kwargs)
+        except anthropic.AuthenticationError as e:
+            raise PromptWriterError("Claude 인증 실패. ANTHROPIC_API_KEY를 확인하세요.") from e
+        except anthropic.RateLimitError as e:
+            raise PromptWriterError("Claude 요청이 너무 잦습니다. 잠시 후 다시 시도하세요.") from e
+        except anthropic.APIConnectionError as e:
+            raise PromptWriterError("Claude API 연결에 실패했습니다.") from e
+        except anthropic.APIStatusError as e:
+            raise PromptWriterError(f"Claude API 오류: {e.message}") from e
 
-    text = "".join(block.text for block in response.content if block.type == "text").strip()
-    if not text:
-        raise PromptWriterError("Claude가 빈 응답을 반환했습니다.")
-    if check_refused and text.upper().startswith("REFUSED"):
-        reason = text.split(":", 1)[-1].strip() if ":" in text else ""
-        raise PromptRefused(reason or "부적절한 요청으로 판단되어 거부되었습니다.")
-    return text
+        # Claude 5 계열은 자체 안전 필터가 걸리면 "REFUSED:" 텍스트 대신 API 차원에서
+        # stop_reason="refusal"과 함께 사실상 빈 응답을 준다. 이걸 감지 못 하면 빈 문자열이
+        # 그대로 "정상 변환 결과"로 흘러가서 NovelAI에 텅 빈 프롬프트가 들어가는 사고가 난다
+        # (우리가 직접 지시한 "REFUSED:" 컨벤션과는 다른 것이라 PromptRefused가 아니라
+        # PromptWriterError로 처리). 이런 분류기는 같은 입력도 매번 판단이 다를 수 있어서
+        # (특히 애매한 오탐인 경우) 한 번 더 시도해보고, 그래도 안 되면 그때 포기한다.
+        if getattr(response, "stop_reason", None) == "refusal":
+            details = getattr(response, "stop_details", None)
+            category = getattr(details, "category", None) or "알 수 없음"
+            last_error = PromptWriterError(f"Claude 안전 필터에 의해 변환이 거부됨 (category={category})")
+            continue
+
+        text = "".join(block.text for block in response.content if block.type == "text").strip()
+        if not text:
+            last_error = PromptWriterError("Claude가 빈 응답을 반환했습니다.")
+            continue
+
+        if check_refused and text.upper().startswith("REFUSED"):
+            reason = text.split(":", 1)[-1].strip() if ":" in text else ""
+            raise PromptRefused(reason or "부적절한 요청으로 판단되어 거부되었습니다.")
+        return text
+
+    raise last_error
 
 
 async def write_tags(description: str = "", image_bytes: bytes = None, image_media_type: str = "image/png") -> str:
