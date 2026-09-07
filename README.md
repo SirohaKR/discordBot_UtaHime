@@ -43,7 +43,7 @@
 - 대화 기록은 채널별로 메모리에만 보관(최근 10턴 정도, 봇 재시작 시 초기화). `/채팅초기화`로 대화 기억과 저장된 스타일 참조 이미지를 함께 초기화 가능.
 - `/채팅채널설정해제` — 채팅 채널 지정 해제.
 - NovelAI 토큰 발급: NovelAI 로그인 → 좌측 톱니바퀴(User Settings) → Account 탭 → **Get Persistent API Token** → 복사해서 `.env`의 `NAI_TOKEN`에 붙여넣기.
-- Claude API 키 발급(선택, 자동 프롬프트 변환용): [console.anthropic.com](https://console.anthropic.com) 가입 → 결제수단 등록 → API Keys에서 발급 → `.env`의 `ANTHROPIC_API_KEY`에 붙여넣기. Haiku 4.5 기준 이미지 1장당 약 $0.001~0.002 추가 비용(NovelAI 구독료와 별개, Anthropic 쪽에 종량제로 청구).
+- Claude API 키 발급(선택, 자동 프롬프트 변환용): [console.anthropic.com](https://console.anthropic.com) 가입 → 결제수단 등록 → API Keys에서 발급 → `.env`의 `ANTHROPIC_API_KEY`에 붙여넣기. Sonnet 5 기준 이미지 1장당 약 $0.003~0.005 추가 비용(NovelAI 구독료와 별개, Anthropic 쪽에 종량제로 청구). 채팅 채널 대화도 같은 키로 처리됨.
 - 참고: NovelAI 연동은 아카라이브에 공개된 "Novel AI 이미지 생성 도구 개발용 API 레퍼런스"(DNT-LAB/NAIA_novel_ai_entrypoint)의 비공식 API 스펙을 기반으로 구현됨 (`core/nai_client.py`). 프롬프트 자동 변환은 `core/prompt_writer.py`.
 
 ## 명령어
@@ -122,7 +122,7 @@ cogs/image.py                # NovelAI 이미지 생성 (/그림생성, /애나�
 cogs/prompt_suggest.py         # 프롬프트 추천 전용 채널 (/프롬프트채널설정)
 cogs/chat.py                  # 자유 채팅 채널 (/채팅채널설정) + 대화 -> 그림 생성 연동
 core/nai_client.py            # NovelAI 이미지 생성 API 클라이언트 (aiohttp)
-core/prompt_writer.py          # 자연어 설명(+이미지) -> Danbooru 태그 변환, 태그 수정, 자유 채팅 답장 (Claude Haiku 4.5, 비전 지원)
+core/prompt_writer.py          # 자연어 설명(+이미지) -> Danbooru 태그 변환, 태그 수정, 자유 채팅 답장 (Claude Sonnet 5, 비전 지원)
 core/image_settings_db.py      # 이미지 생성 전용 채널 설정 저장소 (SQLite, playlists.db 공유)
 core/prompt_channel_db.py      # 프롬프트 추천 전용 채널 설정 저장소 (SQLite, playlists.db 공유)
 core/chat_channel_db.py        # 자유 채팅 채널 설정 저장소 (SQLite, playlists.db 공유)

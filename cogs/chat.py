@@ -2,9 +2,10 @@
 """자유 채팅 채널.
 
 지정한 채널에서는 명령어 없이 그냥 편하게 말을 걸면 Claude가 답장한다. 어떤 그림을 그리고
-싶은지 감이 안 잡힐 때 대화로 아이디어를 다듬은 다음, 답장에 달린 "🎨 이 대화로 그림 만들기"
-버튼 하나로 지금까지 나눈 대화 내용을 그대로 /그림생성과 같은 경로(ImageGen.run_generation)로
-넘겨서 이미지를 만든다.
+싶은지 감이 안 잡힐 때 대화로 아이디어를 다듬으면, 대화 내용이 충분히 구체화됐다고 Claude가
+판단한 순간에만(IMAGE_READY_MARKER) 답장에 "🎨 이 대화로 그림 만들기" 버튼이 붙는다 — 매번
+붙어있으면 일상 대화 중엔 방해만 되므로, 필요할 때만 나타나게 했다. 버튼을 누르면 지금까지
+나눈 대화 내용을 그대로 /그림생성과 같은 경로(ImageGen.run_generation)로 넘겨서 이미지를 만든다.
 
 대화 기록은 채널별로 메모리에만 들고 있는다 (봇 재시작 시 초기화 — 가벼운 잡담 기능이라
 DB에 영구 저장할 필요는 없다고 판단). 여러 명이 같은 채널에서 동시에 말해도 순서가 꼬이지
@@ -110,25 +111,33 @@ class ChatChannel(commands.Cog):
 
             async with message.channel.typing():
                 try:
-                    reply = await prompt_writer.chat_reply(
+                    raw_reply = await prompt_writer.chat_reply(
                         history, labeled_message, image_bytes=image_bytes, image_media_type=image_media_type
                     )
                 except PromptWriterError as e:
                     await message.reply(f"❌ {e}", mention_author=False)
                     return
 
+            image_ready = prompt_writer.IMAGE_READY_MARKER in raw_reply
+            reply = raw_reply.replace(prompt_writer.IMAGE_READY_MARKER, "").strip()
+
             # history에는 이미지 원본 대신 첨부됐다는 표시만 남긴다 (매 턴 다시 보내면 토큰 낭비).
+            # 마커도 다음 턴에 다시 보이면 Claude가 헷갈릴 수 있으니 제거한 텍스트만 기록한다.
             history_message = labeled_message + (" [이미지 첨부됨 — 스타일 참조로 저장됨]" if image_attachment else "")
             history.append({"role": "user", "content": history_message})
             history.append({"role": "assistant", "content": reply})
             del history[:-MAX_HISTORY_MESSAGES]
 
-            transcript = "\n".join(
-                ("(나) " if h["role"] == "assistant" else "") + h["content"] for h in history
-            )
-            view = ChatToImageView(self, transcript)
-            sent = await message.reply(reply[:1900] or "...", mention_author=False, view=view)
-            view.message = sent
+            if image_ready:
+                # 그림으로 만들어도 될 만큼 구체화됐다고 판단한 경우에만 버튼을 붙인다.
+                transcript = "\n".join(
+                    ("(나) " if h["role"] == "assistant" else "") + h["content"] for h in history
+                )
+                view = ChatToImageView(self, transcript)
+                sent = await message.reply(reply[:1900] or "...", mention_author=False, view=view)
+                view.message = sent
+            else:
+                await message.reply(reply[:1900] or "...", mention_author=False)
 
     async def make_image_from_chat(self, interaction: discord.Interaction, transcript: str) -> None:
         image_cog = self.bot.get_cog("ImageGen")
