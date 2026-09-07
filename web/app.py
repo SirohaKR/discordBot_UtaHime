@@ -47,9 +47,12 @@ if not WEB_ADMIN_TOKEN:
     print("⚠️ [WARN] WEB_ADMIN_TOKEN이 설정되지 않았습니다. 아무도 로그인할 수 없습니다 (.env 확인).")
 
 
+PUBLIC_ENDPOINTS = {"static", "docs"}
+
+
 @app.before_request
 def require_auth():
-    if request.endpoint == "static":
+    if request.endpoint in PUBLIC_ENDPOINTS:
         return None
 
     if session.get("authed"):
@@ -72,6 +75,12 @@ def forbidden(_e):
 
 def _now_iso():
     return datetime.now(timezone.utc).isoformat()
+
+
+@app.route("/docs")
+def docs():
+    """봇 사용법 문서. 링크만 있으면 누구나 볼 수 있게 인증 없이 공개한다 (설정 변경 기능 없음)."""
+    return render_template("docs.html")
 
 
 @app.route("/")

@@ -18,6 +18,14 @@ GENERATE_URL = "https://image.novelai.net/ai/generate-image"
 ENCODE_VIBE_URL = "https://image.novelai.net/ai/encode-vibe"
 SUBSCRIPTION_URL = "https://api.novelai.net/user/subscription"
 
+# api.novelai.net은 기본 aiohttp User-Agent("Python/.. aiohttp/..")를 봇으로 보고 Cloudflare가
+# HTML 차단/점검 페이지를 돌려주는 경우가 있다 (image.novelai.net은 이 문제가 없었음).
+# 브라우저처럼 보이는 UA를 붙여서 우회한다.
+_BROWSER_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
+
 MODELS = {
     "nai-diffusion-4-5-full": "풀 모델",
     "nai-diffusion-4-5-curated": "큐레이트 모델",
@@ -42,12 +50,20 @@ UC_PRESETS = {
     "nai-diffusion-4-5-full": (
         "lowres, artistic error, film grain, scan artifacts, worst quality, bad quality, "
         "jpeg artifacts, very displeasing, chromatic aberration, dithering, halftone, screentone, "
-        "multiple views, logo, too many watermarks, negative space, blank page"
+        "multiple views, logo, too many watermarks, negative space, blank page, "
+        "bad hands, mutated hands, poorly drawn hands, malformed hands, disfigured hands, "
+        "extra digits, fewer digits, extra fingers, missing fingers, fused fingers, long fingers, "
+        "liquid fingers, bad anatomy, bad proportions, extra limbs, missing limbs, disconnected limbs, "
+        "bad clothes, wardrobe malfunction, mismatched clothes, floating clothes, clothes through body"
     ),
     "nai-diffusion-4-5-curated": (
         "blurry, lowres, upscaled, artistic error, film grain, scan artifacts, worst quality, "
         "bad quality, jpeg artifacts, very displeasing, chromatic aberration, halftone, "
-        "multiple views, logo, too many watermarks, negative space, blank page"
+        "multiple views, logo, too many watermarks, negative space, blank page, "
+        "bad hands, mutated hands, poorly drawn hands, malformed hands, disfigured hands, "
+        "extra digits, fewer digits, extra fingers, missing fingers, fused fingers, long fingers, "
+        "liquid fingers, bad anatomy, bad proportions, extra limbs, missing limbs, disconnected limbs, "
+        "bad clothes, wardrobe malfunction, mismatched clothes, floating clothes, clothes through body"
     ),
 }
 
@@ -183,7 +199,11 @@ async def generate_image(
         vibe_strength=vibe_strength,
         vibe_information_extracted=vibe_information_extracted,
     )
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "User-Agent": _BROWSER_USER_AGENT,
+    }
 
     async with aiohttp.ClientSession() as session:
         async with session.post(
@@ -211,7 +231,11 @@ async def encode_vibe(
     결과는 비결정적이라 매번 값이 다르지만, 같은 이미지+모델+information_extracted 조합에는
     재사용 가능 — 호출 1회당 2 Anlas가 소모되므로 호출부에서 반드시 캐싱해야 한다.
     """
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "User-Agent": _BROWSER_USER_AGENT,
+    }
     payload = {
         "image": base64.b64encode(image_bytes).decode(),
         "information_extracted": information_extracted,
@@ -234,7 +258,7 @@ async def encode_vibe(
 
 async def get_anlas(token: str) -> dict:
     """Anlas(크레딧) 잔액 조회. Returns: {"fixed", "purchased", "total", "opus"}"""
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = {"Authorization": f"Bearer {token}", "User-Agent": _BROWSER_USER_AGENT}
     async with aiohttp.ClientSession() as session:
         async with session.get(
             SUBSCRIPTION_URL, headers=headers, timeout=aiohttp.ClientTimeout(total=10)
@@ -244,7 +268,15 @@ async def get_anlas(token: str) -> dict:
             if resp.status != 200:
                 text = await resp.text()
                 raise NaiError(f"Anlas 조회 실패 (HTTP {resp.status}): {text[:300]}")
-            data = await resp.json()
+            try:
+                data = await resp.json()
+            except (aiohttp.ContentTypeError, ValueError):
+                text = await resp.text()
+                raise NaiError(
+                    "Anlas 조회 실패: NovelAI가 정상 응답 대신 다른 페이지를 돌려줬습니다 "
+                    "(일시적인 차단/점검 가능성). 잠시 후 다시 시도해보세요. "
+                    f"(응답 미리보기: {text[:200]!r})"
+                )
 
     steps_left = data.get("trainingStepsLeft", {})
     fixed = steps_left.get("fixedTrainingStepsLeft", 0)

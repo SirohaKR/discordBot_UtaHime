@@ -63,7 +63,11 @@
 <body>
 <div class="wrap">
 
-  <div class="topnav"><a href="{{ url_for('guild_logs', guild_id=guild_id) }}">📊 로그/통계 보기 →</a></div>
+  <div class="topnav">
+    <a href="{{ url_for('docs') }}">📖 사용법</a>
+    &nbsp;·&nbsp;
+    <a href="{{ url_for('guild_logs', guild_id=guild_id) }}">📊 로그/통계 보기 →</a>
+  </div>
 
   <div class="card">
     <h1>🎶 공주님 봇 설정 <span class="muted">(서버 {{ guild_id }})</span></h1>

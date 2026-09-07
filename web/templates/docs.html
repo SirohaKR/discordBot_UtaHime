@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>공주님 봇 사용법</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", sans-serif; background:#0f1115; color:#e6e6e6;
+         margin:0; padding:0 16px 60px; }
+  .wrap { max-width:820px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
+  header { padding:36px 0 8px; }
+  header h1 { font-size:1.6rem; margin:0 0 6px; }
+  header p { color:#9098a4; margin:0; font-size:.92rem; }
+
+  nav.toc { background:#1a1d24; border-radius:12px; padding:18px 22px; box-shadow:0 4px 24px rgba(0,0,0,.3);
+            position:sticky; top:12px; z-index:5; }
+  nav.toc div { font-size:.8rem; color:#9098a4; margin-bottom:8px; text-transform:uppercase; letter-spacing:.03em; }
+  nav.toc ul { list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:6px 14px; }
+  nav.toc a { color:#7dd3fc; text-decoration:none; font-size:.88rem; }
+  nav.toc a:hover { text-decoration:underline; }
+
+  section.card { background:#1a1d24; border-radius:12px; padding:28px 30px; box-shadow:0 4px 24px rgba(0,0,0,.3);
+                 scroll-margin-top:80px; }
+  section.card h2 { font-size:1.2rem; margin:0 0 6px; display:flex; align-items:center; gap:8px; }
+  section.card > p.desc { color:#9098a4; margin:0 0 18px; font-size:.9rem; }
+  h3 { font-size:1rem; color:#c9cdd6; margin:22px 0 10px; }
+  h3:first-of-type { margin-top:6px; }
+
+  table { width:100%; border-collapse:collapse; margin:8px 0 18px; font-size:.88rem; }
+  th, td { text-align:left; padding:9px 8px; border-bottom:1px solid #2a2e37; vertical-align:top; }
+  th { color:#9098a4; font-weight:500; white-space:nowrap; }
+  td.opt { white-space:nowrap; font-weight:600; color:#e6e6e6; }
+  tbody tr:hover { background:#20242c; }
+
+  code { background:#0f1115; padding:2px 6px; border-radius:4px; font-size:.85em; color:#f2c94c; }
+  a { color:#7dd3fc; }
+
+  .btn-list { display:flex; flex-direction:column; gap:10px; margin:8px 0 18px; }
+  .btn-item { display:flex; gap:12px; align-items:flex-start; padding:10px 12px; border:1px solid #2a2e37;
+              border-radius:8px; }
+  .btn-item .emoji { font-size:1.2rem; flex-shrink:0; }
+  .btn-item b { display:block; margin-bottom:2px; }
+  .btn-item span.muted { color:#9098a4; font-size:.86rem; }
+
+  .example { background:#0f1115; border:1px solid #2a2e37; border-radius:8px; padding:12px 14px; margin:10px 0;
+             font-size:.86rem; color:#c9cdd6; }
+  .example b { color:#7dd3fc; }
+
+  .note { border-left:3px solid #4f8cff; background:#131722; padding:10px 14px; border-radius:0 8px 8px 0;
+          font-size:.86rem; color:#c9cdd6; margin:14px 0; }
+  .note.warn { border-left-color:#e5484d; }
+
+  .pill { display:inline-block; padding:2px 9px; border-radius:999px; background:#2a2e37; font-size:.76rem;
+          color:#c9cdd6; margin-left:6px; }
+
+  footer { text-align:center; color:#5b6270; font-size:.8rem; padding:20px 0 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>📖 공주님 봇 사용법</h1>
+    <p>이미지 생성 · 음악 재생 · 프롬프트 추천 기능의 상세 설명입니다. 이 페이지는 누구나 링크로 볼 수 있어요 (설정 변경 없음).</p>
+  </header>
+
+  <nav class="toc">
+    <div>목차</div>
+    <ul>
+      <li><a href="#image">🎨 이미지 생성</a></li>
+      <li><a href="#image-buttons">🔘 결과 버튼</a></li>
+      <li><a href="#prompt-channel">💬 프롬프트 추천 채널</a></li>
+      <li><a href="#music">🎵 음악 재생</a></li>
+      <li><a href="#web">🖥️ 웹 설정 페이지</a></li>
+    </ul>
+  </nav>
+
+  <section class="card" id="image">
+    <h2>🎨 이미지 생성 — <code>/그림생성</code></h2>
+    <p class="desc">원하는 그림을 문장으로 설명하면 AI(Claude)가 NovelAI용 태그로 변환해서 그려줍니다. 태그 문법을 몰라도 됩니다.</p>
+
+    <div class="example">
+      <b>예시</b><br>
+      <code>/그림생성 프롬프트: 은발에 파란 눈을 가진 여자아이가 하얀 방에서 수국을 들고 누워있는 모습</code>
+    </div>
+
+    <table>
+      <tr><th>옵션</th><th>설명</th></tr>
+      <tr><td class="opt">프롬프트</td><td>그리고 싶은 이미지를 자유롭게 설명 (한국어 가능). <code>태그모드</code>를 켜면 Danbooru 영문 태그를 직접 입력하는 용도로 바뀝니다.</td></tr>
+      <tr><td class="opt">네거티브</td><td>결과물에서 빼고 싶은 요소 (선택). 손가락/손 이상, 옷 아티팩트 등 자주 나오는 문제는 시스템이 기본 네거티브로 이미 자동 처리하므로, 여기엔 이 그림에서만 특별히 빼고 싶은 것만 적으면 됩니다.</td></tr>
+      <tr><td class="opt">비율</td><td>세로 832×1216(기본) · 가로 1216×832 · 정사각 1024×1024 · 긴세로 704×1472 · 긴가로 1472×704</td></tr>
+      <tr><td class="opt">모델</td><td>풀 모델(기본, 다양한 화풍) 또는 큐레이트 모델(정제된 화풍 위주)</td></tr>
+      <tr><td class="opt">등급</td><td>일반 · 약한 선정성(기본) · 성인 · 노출</td></tr>
+      <tr><td class="opt">시드</td><td>같은 결과를 재현하고 싶을 때 지정. 비우면(0) 매번 랜덤.</td></tr>
+      <tr><td class="opt">태그모드</td><td>켜면 AI 변환 없이 입력한 텍스트를 Danbooru 태그 그대로 사용합니다 (태그를 아는 사람용).</td></tr>
+      <tr><td class="opt">스타일참조</td><td>화풍/분위기를 참고할 이미지 첨부 (Vibe Transfer). 같은 이미지+정보추출량 조합은 캐시되어 재사용 시 Anlas가 소모되지 않습니다.</td></tr>
+      <tr><td class="opt">스타일강도</td><td>0.0~1.0 (기본 0.6). 레퍼런스가 결과에 얼마나 세게 섞일지. 낮으면 프롬프트 위주, 높으면(0.8+) 화풍이 뚜렷해지지만 프롬프트 내용과 충돌할 수 있습니다.</td></tr>
+      <tr><td class="opt">정보추출량</td><td>0.0~1.0 (기본 1.0). 레퍼런스에서 얼마나 구체적으로 뽑아낼지. 낮으면 색감/분위기만, 높으면 선화·구도까지 상세히 담습니다.</td></tr>
+    </table>
+
+    <div class="note">
+      화질 태그(<code>masterpiece</code>, <code>very aesthetic</code> 등)와 손가락/손 이상·옷 아티팩트 방지용 네거티브는 매 요청마다
+      자동으로 붙습니다. 따로 입력할 필요 없어요.
+    </div>
+
+    <h3>기타 명령어</h3>
+    <table>
+      <tr><th>명령어</th><th>설명</th></tr>
+      <tr><td class="opt">/애나니스</td><td>NovelAI Anlas(크레딧) 잔액을 확인합니다.</td></tr>
+      <tr><td class="opt">/그림채널설정</td><td>현재 채널을 이미지 생성 전용 채널로 지정합니다 (관리 명령).</td></tr>
+      <tr><td class="opt">/그림채널설정해제</td><td>채널 제한을 해제해서 아무 채널에서나 사용 가능하게 합니다.</td></tr>
+    </table>
+  </section>
+
+  <section class="card" id="image-buttons">
+    <h2>🔘 생성 결과 버튼</h2>
+    <p class="desc">그림이 나온 뒤 결과 메시지에 버튼 4개가 붙습니다. 결과가 마음에 안 들 때 처음부터 다시 채팅으로 요청할 필요 없이 그 자리에서 바로 조정할 수 있어요. <b>요청한 본인만</b> 누를 수 있습니다.</p>
+
+    <div class="btn-list">
+      <div class="btn-item">
+        <div class="emoji">📋</div>
+        <div><b>프롬프트 복사</b><span class="muted">입력한 설명, 변환된 태그, 네거티브를 나만 보이는 메시지로 띄워줍니다. 그대로 복사해서 다른 곳에 쓸 수 있어요.</span></div>
+      </div>
+      <div class="btn-item">
+        <div class="emoji">⚙️</div>
+        <div><b>설정 복사</b><span class="muted">비율/모델/등급/시드/태그모드/스타일참조 강도 등 이번 생성에 쓰인 설정값을 한 번에 보여줍니다.</span></div>
+      </div>
+      <div class="btn-item">
+        <div class="emoji">🔁</div>
+        <div><b>다시 생성</b><span class="muted">같은 프롬프트·설정 그대로 시드만 새로 뽑아서 다른 결과를 받아봅니다.</span></div>
+      </div>
+      <div class="btn-item">
+        <div class="emoji">✏️</div>
+        <div><b>수정하기</b><span class="muted">모달 창이 뜨면 "바꾸고 싶은 내용"만 대화하듯 짧게 적으면 됩니다. 전체를 다시 쓸 필요 없이, 지금 그림의 태그 목록에서 겹치는 속성만 알아서 골라 교체합니다.</span></div>
+      </div>
+    </div>
+
+    <div class="example">
+      <b>수정하기 예시</b><br>
+      기존 태그에 <code>silver hair, blue eyes, white dress</code>가 있는 상태에서<br>
+      <code>머리 보라색으로, 눈 검은색에 하트동공 박고 원피스를 흰 블라우스로 바꿔줘</code> 라고 입력하면<br>
+      → 뒤에 태그를 이어붙이는 게 아니라 <code>silver hair</code>→<code>purple hair</code>, <code>blue eyes</code>→<code>black eyes, heart-shaped pupils</code>처럼
+      충돌하는 기존 태그를 지우고 교체합니다. 이후 또 수정하면 이 새 태그 목록을 기준으로 계속 이어서 편집됩니다.
+    </div>
+
+    <div class="note">버튼/모달로 다시 생성하거나 수정할 때도 스팸 방지를 위해 15초 쿨다운이 적용됩니다.</div>
+  </section>
+
+  <section class="card" id="prompt-channel">
+    <h2>💬 프롬프트 추천 채널</h2>
+    <p class="desc">태그를 몰라도 되는 채팅 전용 채널입니다. 지정된 채널에 문장(또는 이미지)을 그냥 올리면 AI가 어울리는 Danbooru 태그를 추천해줍니다.
+    이미지만 첨부하면 그 이미지를 보고 태그를 뽑아주고, 텍스트도 같이 있으면 텍스트 요청을 우선 반영합니다.</p>
+
+    <table>
+      <tr><th>명령어</th><th>설명</th></tr>
+      <tr><td class="opt">/프롬프트채널설정</td><td>현재 채널을 프롬프트 추천 전용 채널로 지정합니다 (관리 명령).</td></tr>
+      <tr><td class="opt">/프롬프트채널설정해제</td><td>지정을 해제합니다.</td></tr>
+    </table>
+
+    <div class="note">
+      여기서 추천받은 태그는 <code>/그림생성</code>의 <b>태그모드</b>를 켜고 그대로 붙여넣으면 바로 그림으로 생성할 수 있습니다.
+      요청 사이엔 5초 쿨다운이 있습니다.
+    </div>
+  </section>
+
+  <section class="card" id="music">
+    <h2>🎵 음악 재생</h2>
+    <p class="desc">유튜브 검색/링크로 음성 채널에서 음악을 재생합니다. 명령어 접두사(<code>!</code>)와 슬래시(<code>/</code>) 둘 다 지원됩니다.</p>
+
+    <h3>설정 &amp; 입장</h3>
+    <table>
+      <tr><th>명령어</th><th>설명</th></tr>
+      <tr><td class="opt">/설정</td><td>현재 채널을 음악 전용 채널로 지정하고, 재생을 조작할 컨트롤러 메시지를 게시합니다 (관리 명령).</td></tr>
+      <tr><td class="opt">/join</td><td>전용 채널에서 봇을 사용자의 음성 채널로 불러옵니다.</td></tr>
+      <tr><td class="opt">/leave</td><td>대기열을 비우고 음성 채널에서 퇴장합니다. <span class="pill">stop</span></td></tr>
+    </table>
+
+    <h3>재생 &amp; 플레이리스트</h3>
+    <table>
+      <tr><th>명령어</th><th>설명</th></tr>
+      <tr><td class="opt">/play</td><td>검색어 또는 유튜브 링크를 대기열에 추가합니다. <span class="pill">실행</span><span class="pill">p</span></td></tr>
+      <tr><td class="opt">/플레이리스트추가</td><td>유튜브 링크를 이름 붙여서 저장합니다. <span class="pill">pladd</span></td></tr>
+      <tr><td class="opt">/플레이리스트목록</td><td>저장된 플레이리스트 목록을 확인합니다. <span class="pill">pllist</span></td></tr>
+      <tr><td class="opt">/플레이리스트삭제</td><td>저장된 플레이리스트를 삭제합니다. <span class="pill">pldel</span></td></tr>
+      <tr><td class="opt">/volume</td><td>볼륨을 조회하거나 설정합니다. 숫자(<code>30</code>)로 절대값, <code>+10</code>/<code>-20</code>으로 상대 조절. <span class="pill">vol</span><span class="pill">볼륨</span></td></tr>
+    </table>
+
+    <h3>컨트롤러 버튼 (전용 채널에 게시된 메시지)</h3>
+    <div class="btn-list">
+      <div class="btn-item"><div class="emoji">⏸️</div><div><b>일시정지 / 재개</b><span class="muted">재생 상태에 따라 토글됩니다.</span></div></div>
+      <div class="btn-item"><div class="emoji">⏭️</div><div><b>스킵</b><span class="muted">현재 곡을 건너뜁니다.</span></div></div>
+      <div class="btn-item"><div class="emoji">🔀</div><div><b>셔플 ON/OFF</b><span class="muted">대기열 순서를 무작위로 재생할지 토글합니다.</span></div></div>
+      <div class="btn-item"><div class="emoji">🔁</div><div><b>반복 모드</b><span class="muted">끔 → 전체 반복 → 한 곡 반복 순으로 클릭할 때마다 전환됩니다.</span></div></div>
+      <div class="btn-item"><div class="emoji">📄</div><div><b>대기열 보기</b><span class="muted">현재 재생 중인 곡과 대기열을 보여줍니다.</span></div></div>
+      <div class="btn-item"><div class="emoji">🔇</div><div><b>정지 / 퇴장</b><span class="muted">대기열을 비우고 음성 채널에서 나갑니다.</span></div></div>
+    </div>
+  </section>
+
+  <section class="card" id="web">
+    <h2>🖥️ 웹 설정 페이지</h2>
+    <p class="desc">음악 관련 설정(기본 볼륨/셔플/반복 모드)과 플레이리스트는 디스코드 명령어 대신 웹페이지에서도 관리할 수 있습니다.</p>
+    <ul>
+      <li>관리자에게 받은 토큰 링크(<code>?token=...</code>)로 한 번 접속하면 이후엔 토큰 없이도 접근됩니다.</li>
+      <li>설정 페이지에서 바꾼 값은 봇이 몇 초 안에 자동으로 반영합니다 (재시작 불필요).</li>
+      <li>이 사용법 문서 페이지(<code>/docs</code>)는 토큰 없이도 누구나 볼 수 있습니다.</li>
+    </ul>
+  </section>
+
+  <footer>공주님 봇 · 궁금한 점은 관리자에게 문의하세요.</footer>
+</div>
+</body>
+</html>
