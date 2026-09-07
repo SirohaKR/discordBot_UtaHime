@@ -47,7 +47,7 @@ if not WEB_ADMIN_TOKEN:
     print("⚠️ [WARN] WEB_ADMIN_TOKEN이 설정되지 않았습니다. 아무도 로그인할 수 없습니다 (.env 확인).")
 
 
-PUBLIC_ENDPOINTS = {"static", "docs"}
+PUBLIC_ENDPOINTS = {"static", "docs", "prompt_guide"}
 
 
 @app.before_request
@@ -81,6 +81,13 @@ def _now_iso():
 def docs():
     """봇 사용법 문서. 링크만 있으면 누구나 볼 수 있게 인증 없이 공개한다 (설정 변경 기능 없음)."""
     return render_template("docs.html")
+
+
+@app.route("/prompt-guide")
+def prompt_guide():
+    """태그 카테고리를 클릭/입력하면 긍정/네거티브 프롬프트를 조합해주는 참고용 페이지.
+    전부 클라이언트 사이드 JS로 동작 — 서버는 정적 페이지만 내려준다. 인증 불필요."""
+    return render_template("prompt_guide.html")
 
 
 @app.route("/")

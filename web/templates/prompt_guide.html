@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>공주님 봇 프롬프트 가이드</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", sans-serif; background:#0f1115; color:#e6e6e6;
+         margin:0; padding:0 16px 80px; }
+  .wrap { max-width:900px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
+  header { padding:36px 0 8px; }
+  header h1 { font-size:1.6rem; margin:0 0 6px; }
+  header p { color:#9098a4; margin:0; font-size:.92rem; }
+  header a { color:#7dd3fc; text-decoration:none; }
+  header a:hover { text-decoration:underline; }
+
+  section.card { background:#1a1d24; border-radius:12px; padding:26px 28px; box-shadow:0 4px 24px rgba(0,0,0,.3); }
+  section.card h2 { font-size:1.1rem; margin:0 0 4px; }
+  section.card > p.desc { color:#9098a4; margin:0 0 16px; font-size:.87rem; }
+
+  .category { margin-bottom:20px; }
+  .category:last-child { margin-bottom:0; }
+  .category-title { font-size:.85rem; color:#c9cdd6; margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+  .category-title .hint { font-size:.74rem; color:#5b6270; font-weight:normal; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip {
+    padding:6px 12px; border-radius:999px; border:1px solid #2a2e37; background:#0f1115; color:#c9cdd6;
+    font-size:.82rem; cursor:pointer; transition:all .12s; user-select:none; white-space:nowrap;
+  }
+  .chip:hover { border-color:#4f8cff; color:#e6e6e6; }
+  .chip.selected { background:#4f8cff; border-color:#4f8cff; color:#fff; }
+  .chip.negative.selected { background:#e5484d; border-color:#e5484d; }
+
+  .custom-row { margin-top:14px; }
+  .custom-row label { display:block; font-size:.82rem; color:#9098a4; margin-bottom:6px; }
+  .custom-row input[type=text] {
+    width:100%; padding:9px 10px; border-radius:8px; border:1px solid #333; background:#0f1115;
+    color:#e6e6e6; font-size:.9rem;
+  }
+  .custom-row input[type=text]:focus { outline:none; border-color:#4f8cff; }
+
+  .output-box { position:sticky; bottom:12px; z-index:5; }
+  .output-panel { background:#14171d; border:1px solid #2a2e37; border-radius:10px; padding:14px 16px; margin-top:12px; }
+  .output-panel.negative { border-color:#4a2224; }
+  .output-panel-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .output-panel-head span { font-size:.82rem; color:#9098a4; }
+  .output-text {
+    width:100%; min-height:56px; resize:vertical; background:#0f1115; border:1px solid #2a2e37; border-radius:8px;
+    color:#e6e6e6; font-size:.85rem; padding:10px; font-family:ui-monospace, "Segoe UI Mono", monospace;
+  }
+  .copy-btn {
+    padding:5px 12px; border-radius:6px; border:none; background:#2a2e37; color:#c9cdd6; font-size:.78rem;
+    cursor:pointer; transition:background .12s;
+  }
+  .copy-btn:hover { background:#353a45; }
+  .copy-btn.copied { background:#2f8f4e; color:#fff; }
+  .clear-btn { padding:5px 12px; border-radius:6px; border:none; background:transparent; color:#6b7280;
+    font-size:.78rem; cursor:pointer; text-decoration:underline; }
+  .clear-btn:hover { color:#9098a4; }
+
+  .preset-toggle { font-size:.82rem; color:#7dd3fc; cursor:pointer; user-select:none; display:inline-block; margin-top:4px; }
+  .preset-box { display:none; margin-top:10px; padding:12px 14px; background:#0f1115; border-radius:8px;
+    border:1px solid #2a2e37; font-size:.8rem; color:#9098a4; line-height:1.6; }
+  .preset-box.open { display:block; }
+  .preset-box b { color:#c9cdd6; }
+
+  .note { border-left:3px solid #4f8cff; background:#131722; padding:10px 14px; border-radius:0 8px 8px 0;
+          font-size:.86rem; color:#c9cdd6; margin:0 0 18px; }
+
+  footer { text-align:center; color:#5b6270; font-size:.8rem; padding:20px 0 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>🎨 프롬프트 가이드 &amp; 빌더</h1>
+    <p>태그를 눌러서 조합하면 아래에 프롬프트가 바로 만들어집니다. 완성되면 복사해서
+    <code>/그림생성</code>의 <b>태그모드</b>를 켜고 붙여넣으세요. · <a href="/docs">📖 봇 사용법 문서로</a></p>
+  </header>
+
+  <div class="note">
+    <b>masterpiece</b>, <b>very aesthetic</b> 같은 품질 태그와 손가락/손·옷 아티팩트 방지용 네거티브는
+    <code>/그림생성</code>이 매 요청마다 자동으로 붙여줍니다. 아래에서 만드는 프롬프트에는 굳이 안 넣어도 돼요
+    (하단 "자동으로 붙는 기본값 보기"에서 확인 가능).
+  </div>
+
+  <section class="card">
+    <h2>🟢 긍정 프롬프트</h2>
+    <p class="desc">인물 수 → 헤어/눈 → 표정 → 의상 → 포즈 → 화풍 → 배경 순으로 정리돼서 출력됩니다 (권장 태그 순서).</p>
+    <div id="positive-categories"></div>
+
+    <div class="custom-row">
+      <label for="positive-custom">직접 추가 (콤마로 구분)</label>
+      <input type="text" id="positive-custom" placeholder="예: holding umbrella, wind, cherry blossom petals">
+    </div>
+
+    <div class="output-panel">
+      <div class="output-panel-head">
+        <span>완성된 긍정 프롬프트</span>
+        <div>
+          <button class="clear-btn" id="positive-clear" type="button">전체 지우기</button>
+          <button class="copy-btn" id="positive-copy" type="button">복사</button>
+        </div>
+      </div>
+      <textarea class="output-text" id="positive-output" readonly placeholder="태그를 선택하면 여기에 채워집니다"></textarea>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>🔴 네거티브 프롬프트 (추가 옵션)</h2>
+    <p class="desc">기본 네거티브는 이미 자동으로 붙습니다. 이 그림에서만 특별히 더 빼고 싶은 게 있을 때만 골라주세요.</p>
+    <div id="negative-categories"></div>
+
+    <div class="custom-row">
+      <label for="negative-custom">직접 추가 (콤마로 구분)</label>
+      <input type="text" id="negative-custom" placeholder="예: hat, glasses">
+    </div>
+
+    <div class="output-panel negative">
+      <div class="output-panel-head">
+        <span>완성된 네거티브 프롬프트</span>
+        <div>
+          <button class="clear-btn" id="negative-clear" type="button">전체 지우기</button>
+          <button class="copy-btn" id="negative-copy" type="button">복사</button>
+        </div>
+      </div>
+      <textarea class="output-text" id="negative-output" readonly placeholder="선택하면 여기에 채워집니다 (비워도 정상 — 기본값이 이미 적용됨)"></textarea>
+    </div>
+
+    <span class="preset-toggle" id="preset-toggle">▸ 자동으로 붙는 기본값 보기</span>
+    <div class="preset-box" id="preset-box">
+      <b>품질(긍정, 자동 추가):</b> location, very aesthetic, masterpiece, no text
+      <br><br>
+      <b>네거티브(자동 추가, 풀 모델 기준):</b><br>
+      lowres, artistic error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts,
+      very displeasing, chromatic aberration, dithering, halftone, screentone, multiple views, logo,
+      too many watermarks, negative space, blank page, bad hands, mutated hands, poorly drawn hands,
+      malformed hands, disfigured hands, extra digits, fewer digits, extra fingers, missing fingers,
+      fused fingers, long fingers, liquid fingers, bad anatomy, bad proportions, extra limbs, missing limbs,
+      disconnected limbs, bad clothes, wardrobe malfunction, mismatched clothes, floating clothes,
+      clothes through body
+    </div>
+  </section>
+
+  <footer>공주님 봇 · 태그는 NovelAI(Danbooru 체계) 기준 영어 태그입니다.</footer>
+</div>
+
+<script>
+  // 각 카테고리: id, 제목, (선택) 힌트, 태그 목록[{ko, en}]. FIXED_ORDER 순서대로 출력에 반영된다.
+  const POSITIVE_CATEGORIES = [
+    { id: "count", title: "인물 수", hint: "보통 1개만", tags: [
+      ["1girl","1girl"], ["1boy","1boy"], ["2girls","2girls"], ["2boys","2boys"],
+      ["3girls","3girls"], ["여러 명(다수)","multiple girls"], ["사람 없음","no humans"],
+    ]},
+    { id: "hair_color", title: "머리 색", hint: "보통 1개만", tags: [
+      ["검정","black hair"], ["흰색","white hair"], ["은발","silver hair"], ["금발","blonde hair"],
+      ["갈색","brown hair"], ["빨강","red hair"], ["분홍","pink hair"], ["보라","purple hair"],
+      ["파랑","blue hair"], ["초록","green hair"], ["주황","orange hair"], ["회색","grey hair"],
+      ["멀티컬러","multicolored hair"], ["그라데이션","gradient hair"], ["브릿지 염색","streaked hair"],
+    ]},
+    { id: "hair_style", title: "머리 길이 / 스타일", tags: [
+      ["짧은 머리","short hair"], ["단발","medium hair"], ["긴 머리","long hair"], ["아주 긴 머리","very long hair"],
+      ["트윈테일","twintails"], ["포니테일","ponytail"], ["사이드 포니테일","side ponytail"],
+      ["땋은 머리","braid"], ["묶은 머리(번)","hair bun"], ["드릴 머리","drill hair"],
+      ["부스스한 머리","messy hair"], ["생머리","straight hair"], ["웨이브","wavy hair"], ["곱슬머리","curly hair"],
+      ["앞머리","bangs"], ["히메컷","hime cut"], ["아호게(삐친머리)","ahoge"],
+    ]},
+    { id: "eye_color", title: "눈 색", hint: "보통 1개만", tags: [
+      ["파란 눈","blue eyes"], ["빨간 눈","red eyes"], ["초록 눈","green eyes"], ["보라 눈","purple eyes"],
+      ["노란 눈","yellow eyes"], ["검은 눈","black eyes"], ["갈색 눈","brown eyes"], ["금색 눈","golden eyes"],
+      ["짝눈(오드아이)","heterochromia"],
+    ]},
+    { id: "eye_shape", title: "눈 모양 / 특수효과", tags: [
+      ["하트 동공","heart-shaped pupils"], ["별 동공","star-shaped pupils"], ["빛나는 눈","glowing eyes"],
+      ["처진 눈","tareme"], ["치켜뜬 눈","tsurime"], ["감은 눈","closed eyes"], ["한쪽 눈 감음","one eye closed"],
+      ["반짝이는 눈","sparkling eyes"], ["세로 동공","slit pupils"],
+    ]},
+    { id: "expression", title: "표정", tags: [
+      ["미소","smile"], ["웃음","laughing"], ["눈물","crying"], ["화남","angry"], ["부끄러움(홍조)","blush"],
+      ["놀람","surprised"], ["장난스런 미소","smirk"], ["진지함","serious"], ["무표정","expressionless"],
+      ["당황","embarrassed"],
+    ]},
+    { id: "hand", title: "손 (선택)", hint: "과하면 어색해질 수 있음", tags: [
+      ["손 강조","hand focus"], ["디테일한 손","detailed hands"],
+    ]},
+    { id: "clothing", title: "의상", tags: [
+      ["교복","school uniform"], ["원피스","dress"], ["기모노","kimono"], ["수영복","swimsuit"],
+      ["평상복","casual clothes"], ["고딕 로리타","gothic lolita"], ["메이드복","maid outfit"],
+      ["후드티","hoodie"], ["정장","suit"], ["세일러복","sailor uniform"], ["스웨터","sweater"], ["재킷","jacket"],
+    ]},
+    { id: "pose", title: "포즈 / 구도", tags: [
+      ["서있음","standing"], ["앉아있음","sitting"], ["누워있음","lying down"], ["정면 응시","looking at viewer"],
+      ["뒤돌아봄","looking back"], ["시선 회피","looking away"], ["옆모습","from side"], ["위에서","from above"],
+      ["아래에서","from below"], ["카우보이샷","cowboy shot"], ["전신","full body"], ["상반신","upper body"],
+      ["클로즈업","close-up"], ["역동적 앵글","dynamic angle"], ["와이드샷","wide shot"],
+    ]},
+    { id: "art_style", title: "화풍 / 아트 스타일", tags: [
+      ["수채화","watercolor"], ["유화","oil painting"], ["스케치","sketch"], ["선화","lineart"],
+      ["셀 셰이딩","cel shading"], ["플랫 컬러","flat color"], ["두꺼운 채색","thick coloring"],
+      ["부드러운 음영","soft shading"], ["파스텔톤","pastel colors"], ["흑백","monochrome"], ["세피아","sepia"],
+      ["치비","chibi"], ["반실사","semi-realistic"], ["레트로 애니풍","retro anime style"],
+    ]},
+    { id: "background", title: "배경 / 분위기", tags: [
+      ["단순 배경","simple background"], ["야외","outdoors"], ["실내","indoors"], ["벚꽃","cherry blossoms"],
+      ["밤하늘","night sky"], ["노을","sunset"], ["카페","cafe"], ["교실","classroom"],
+      ["판타지 배경","fantasy background"], ["보케(흐린 조명)","bokeh"], ["부드러운 조명","soft lighting"],
+      ["드라마틱한 조명","dramatic lighting"], ["비","rain"], ["눈(날씨)","snow"], ["별이 총총한 하늘","starry sky"],
+    ]},
+  ];
+
+  const NEGATIVE_CATEGORIES = [
+    { id: "neg_extra", title: "추가로 빼고 싶은 것", tags: [
+      ["텍스트","text"], ["워터마크","watermark"], ["서명","signature"], ["유저이름","username"],
+      ["작가 이름","artist name"], ["3D 느낌","3d"], ["모자이크","censored"], ["못생김","ugly"],
+      ["이상한 얼굴","bad face"], ["귀 여러개","extra ears"], ["귀 없음","missing ears"], ["귀 겹침","fused ears"],
+    ]},
+  ];
+
+  const selected = { positive: new Set(), negative: new Set() };
+
+  function renderCategories(containerId, categories, isNegative) {
+    const container = document.getElementById(containerId);
+    categories.forEach((cat) => {
+      const wrap = document.createElement("div");
+      wrap.className = "category";
+
+      const title = document.createElement("div");
+      title.className = "category-title";
+      title.innerHTML = "<span>" + cat.title + "</span>" + (cat.hint ? '<span class="hint">' + cat.hint + "</span>" : "");
+      wrap.appendChild(title);
+
+      const chips = document.createElement("div");
+      chips.className = "chips";
+      cat.tags.forEach(([ko, en]) => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "chip" + (isNegative ? " negative" : "");
+        chip.textContent = ko;
+        chip.title = en;
+        chip.addEventListener("click", () => {
+          const set = isNegative ? selected.negative : selected.positive;
+          if (set.has(en)) {
+            set.delete(en);
+            chip.classList.remove("selected");
+          } else {
+            set.add(en);
+            chip.classList.add("selected");
+          }
+          updateOutput();
+        });
+        chips.appendChild(chip);
+      });
+      wrap.appendChild(chips);
+      container.appendChild(wrap);
+    });
+  }
+
+  function collectOrdered(categories, set) {
+    const out = [];
+    categories.forEach((cat) => {
+      cat.tags.forEach(([, en]) => {
+        if (set.has(en)) out.push(en);
+      });
+    });
+    return out;
+  }
+
+  function updateOutput() {
+    const posCustom = document.getElementById("positive-custom").value.trim();
+    const posTags = collectOrdered(POSITIVE_CATEGORIES, selected.positive);
+    if (posCustom) posTags.push(...posCustom.split(",").map((s) => s.trim()).filter(Boolean));
+    document.getElementById("positive-output").value = posTags.join(", ");
+
+    const negCustom = document.getElementById("negative-custom").value.trim();
+    const negTags = collectOrdered(NEGATIVE_CATEGORIES, selected.negative);
+    if (negCustom) negTags.push(...negCustom.split(",").map((s) => s.trim()).filter(Boolean));
+    document.getElementById("negative-output").value = negTags.join(", ");
+  }
+
+  async function copyText(text, btn) {
+    if (!text) return;
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    } catch (e) {
+      // 클립보드 API가 막힌 환경(비HTTPS 등) — 구식 방식으로 대체
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch (e2) {
+        ok = false;
+      }
+    }
+    if (ok) {
+      const original = btn.textContent;
+      btn.textContent = "복사됨!";
+      btn.classList.add("copied");
+      setTimeout(() => {
+        btn.textContent = original;
+        btn.classList.remove("copied");
+      }, 1500);
+    }
+  }
+
+  renderCategories("positive-categories", POSITIVE_CATEGORIES, false);
+  renderCategories("negative-categories", NEGATIVE_CATEGORIES, true);
+
+  document.getElementById("positive-custom").addEventListener("input", updateOutput);
+  document.getElementById("negative-custom").addEventListener("input", updateOutput);
+
+  document.getElementById("positive-copy").addEventListener("click", (e) => {
+    copyText(document.getElementById("positive-output").value, e.currentTarget);
+  });
+  document.getElementById("negative-copy").addEventListener("click", (e) => {
+    copyText(document.getElementById("negative-output").value, e.currentTarget);
+  });
+
+  document.getElementById("positive-clear").addEventListener("click", () => {
+    selected.positive.clear();
+    document.getElementById("positive-custom").value = "";
+    document.querySelectorAll("#positive-categories .chip.selected").forEach((c) => c.classList.remove("selected"));
+    updateOutput();
+  });
+  document.getElementById("negative-clear").addEventListener("click", () => {
+    selected.negative.clear();
+    document.getElementById("negative-custom").value = "";
+    document.querySelectorAll("#negative-categories .chip.selected").forEach((c) => c.classList.remove("selected"));
+    updateOutput();
+  });
+
+  document.getElementById("preset-toggle").addEventListener("click", (e) => {
+    const box = document.getElementById("preset-box");
+    box.classList.toggle("open");
+    e.currentTarget.textContent = (box.classList.contains("open") ? "▾ " : "▸ ") + "자동으로 붙는 기본값 보기";
+  });
+</script>
+</body>
+</html>
