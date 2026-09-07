@@ -75,6 +75,19 @@ EDIT_SYSTEM_PROMPT = """당신은 이미 만들어진 NovelAI(Danbooru 태그) �
   수정 요청이면 태그를 고치지 말고 "REFUSED: <한 줄 이유>"만 출력하세요.
 """
 
+CHAT_SYSTEM_PROMPT = """당신은 디스코드에서 사용자와 편하게 대화하는 친근한 봇 "우타히메"입니다.
+
+필요하면 사용자가 그리고 싶은 이미지의 캐릭터 외형/의상/포즈/배경/분위기 등을 자연스럽게 물어보면서
+아이디어를 구체화하는 걸 도와주세요 (강요하지는 말고, 대화 흐름에 자연스럽게).
+
+- 답장은 1~4문장 정도로 짧고 편한 대화체로 유지하세요. 장문의 설명이나 목록형 답변, 격식체 설명문은 피하세요.
+- 상대방의 말투(반말/존댓말)에 자연스럽게 맞춰주세요.
+- 여러 사람이 같은 채널에서 대화할 수 있어서, 각 메시지 앞에 "이름: " 형식으로 누가 말했는지 붙어서
+  전달됩니다 — 필요하면 이름으로 상대를 구분해서 답하세요.
+- 해킹, 불법 행위 조력, 실존 인물에 대한 성적/명예훼손성 묘사 등 위험하거나 부적절한 요청은 정중히
+  거절하세요.
+"""
+
 _client = None
 
 
@@ -93,7 +106,7 @@ class PromptRefused(RuntimeError):
     """요청이 정책상 거부된 경우."""
 
 
-async def _ask_claude(system: str, content, *, max_tokens: int = 300) -> str:
+async def _ask_claude(system: str, messages: list, *, max_tokens: int = 300, check_refused: bool = True) -> str:
     if not os.getenv("ANTHROPIC_API_KEY"):
         raise PromptWriterError("ANTHROPIC_API_KEY가 설정되지 않았습니다.")
 
@@ -103,7 +116,7 @@ async def _ask_claude(system: str, content, *, max_tokens: int = 300) -> str:
             model=MODEL,
             max_tokens=max_tokens,
             system=system,
-            messages=[{"role": "user", "content": content}],
+            messages=messages,
         )
     except anthropic.AuthenticationError as e:
         raise PromptWriterError("Claude 인증 실패. ANTHROPIC_API_KEY를 확인하세요.") from e
@@ -115,7 +128,7 @@ async def _ask_claude(system: str, content, *, max_tokens: int = 300) -> str:
         raise PromptWriterError(f"Claude API 오류: {e.message}") from e
 
     text = "".join(block.text for block in response.content if block.type == "text").strip()
-    if text.upper().startswith("REFUSED"):
+    if check_refused and text.upper().startswith("REFUSED"):
         reason = text.split(":", 1)[-1].strip() if ":" in text else ""
         raise PromptRefused(reason or "부적절한 요청으로 판단되어 거부되었습니다.")
     return text
@@ -138,7 +151,7 @@ async def write_tags(description: str = "", image_bytes: bytes = None, image_med
     else:
         content = description
 
-    return await _ask_claude(SYSTEM_PROMPT, content)
+    return await _ask_claude(SYSTEM_PROMPT, [{"role": "user", "content": content}])
 
 
 async def edit_tags(current_tags: str, instruction: str) -> str:
@@ -148,4 +161,11 @@ async def edit_tags(current_tags: str, instruction: str) -> str:
     반영해서, 충돌하는 기존 태그(예: 이전 머리색)를 제거하고 새 태그로 교체한 전체 목록을 돌려준다.
     """
     content = f"[현재 태그 목록]\n{current_tags}\n\n[수정 요청]\n{instruction}"
-    return await _ask_claude(EDIT_SYSTEM_PROMPT, content)
+    return await _ask_claude(EDIT_SYSTEM_PROMPT, [{"role": "user", "content": content}])
+
+
+async def chat_reply(history: list, user_message: str) -> str:
+    """자유 채팅 채널용 답장. history는 [{"role": "user"/"assistant", "content": str}, ...] 형태로,
+    호출부(cogs/chat.py)가 채널별로 들고 있는 최근 대화 기록을 그대로 넘긴다."""
+    messages = history + [{"role": "user", "content": user_message}]
+    return await _ask_claude(CHAT_SYSTEM_PROMPT, messages, max_tokens=500, check_refused=False)

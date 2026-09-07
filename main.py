@@ -30,6 +30,7 @@ INITIAL_EXTENSIONS = [
     "cogs.music",
     "cogs.image",
     "cogs.prompt_suggest",
+    "cogs.chat",
 ]
 
 # yt-dlp는 유튜브 정책 변화에 맞춰 자주 패치되므로, 주기적으로 자동 업데이트한다.
