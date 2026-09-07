@@ -20,7 +20,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from core import image_settings_db, nai_client, prompt_writer, vibe_cache_db
+from core import default_style_db, image_settings_db, nai_client, prompt_writer, vibe_cache_db
 from core.error_notify import notify_error
 from core.nai_client import NaiAuthError, NaiError, NaiRateLimitError
 from core.prompt_writer import PromptRefused, PromptWriterError
@@ -341,6 +341,8 @@ class ImageGen(commands.Cog):
 
         vibe_encoded = None
         vibe_note = None
+        vibe_strength_used = 스타일강도
+        vibe_info_used = 정보추출량
         if 스타일참조:
             if not (스타일참조.content_type or "").startswith("image/"):
                 await interaction.followup.send("❌ 스타일참조는 이미지 파일만 가능합니다.")
@@ -361,6 +363,30 @@ class ImageGen(commands.Cog):
             except NaiError as e:
                 await interaction.followup.send(f"❌ 스타일참조 인코딩 실패: {e}")
                 return
+        elif interaction.guild is not None:
+            # 스타일참조를 직접 안 붙였으면, 이 서버에 등록된 기본 스타일 참조가 있는지 확인해서
+            # 자동으로 적용한다 (/기본스타일설정으로 등록). 강도/정보추출량도 등록해둔 값을 그대로 쓴다.
+            default_style = await default_style_db.async_get_default_style(self.bot.loop, interaction.guild.id)
+            if default_style:
+                default_bytes, default_strength, default_info = default_style
+                try:
+                    image_hash = vibe_cache_db.image_hash(default_bytes)
+                    cached = await vibe_cache_db.async_get_cached(self.bot.loop, image_hash, model, default_info)
+                    if cached:
+                        vibe_encoded = cached
+                        vibe_note = "🖼️ 서버 기본 스타일 참조 적용 (캐시된 인코딩 재사용, Anlas 소모 없음)"
+                    else:
+                        vibe_encoded = await nai_client.encode_vibe(
+                            NAI_TOKEN, default_bytes, model=model, information_extracted=default_info
+                        )
+                        await vibe_cache_db.async_save_cached(self.bot.loop, image_hash, model, default_info, vibe_encoded)
+                        vibe_note = "🖼️ 서버 기본 스타일 참조 적용 (새로 인코딩, Anlas 2 소모)"
+                    vibe_strength_used = default_strength
+                    vibe_info_used = default_info
+                except NaiError as e:
+                    await interaction.followup.send(
+                        f"⚠️ 서버 기본 스타일 참조 인코딩에 실패해서 참조 없이 만들게요: {e}", ephemeral=True
+                    )
 
         if prompt_note:
             await interaction.followup.send(prompt_note)
@@ -380,8 +406,8 @@ class ImageGen(commands.Cog):
             rating_label=등급.name if 등급 else "약한 선정성 (기본)",
             seed=시드,
             vibe_encoded=vibe_encoded,
-            vibe_strength=스타일강도,
-            vibe_information_extracted=정보추출량,
+            vibe_strength=vibe_strength_used,
+            vibe_information_extracted=vibe_info_used,
             vibe_note=vibe_note,
         )
         await self.run_generation(interaction, attempt)
@@ -434,6 +460,43 @@ class ImageGen(commands.Cog):
     async def clear_image_channel(self, interaction: discord.Interaction):
         await image_settings_db.async_clear_channel(self.bot.loop, interaction.guild.id)
         await interaction.response.send_message("✅ 채널 제한을 해제했습니다. 이제 아무 채널에서나 `/그림생성`을 사용할 수 있습니다.")
+
+    @app_commands.command(
+        name="기본스타일설정",
+        description="이 서버의 기본 스타일 참조 이미지를 등록합니다. 이후 스타일참조 없이 /그림생성해도 자동 적용됩니다.",
+    )
+    @app_commands.describe(
+        이미지="기본으로 항상 참조할 이미지",
+        스타일강도="레퍼런스가 결과에 얼마나 세게 섞일지 (0.0~1.0, 기본 0.6)",
+        정보추출량="레퍼런스에서 얼마나 구체적으로 뽑아낼지 (0.0~1.0, 기본 1.0)",
+    )
+    @app_commands.guild_only()
+    async def set_default_style(
+        self,
+        interaction: discord.Interaction,
+        이미지: discord.Attachment,
+        스타일강도: app_commands.Range[float, 0.0, 1.0] = 0.6,
+        정보추출량: app_commands.Range[float, 0.0, 1.0] = 1.0,
+    ):
+        if not (이미지.content_type or "").startswith("image/"):
+            await interaction.response.send_message("❌ 이미지 파일만 가능합니다.", ephemeral=True)
+            return
+        await interaction.response.defer(thinking=True)
+        image_bytes = await 이미지.read()
+        await default_style_db.async_set_default_style(
+            self.bot.loop, interaction.guild.id, image_bytes, 스타일강도, 정보추출량, str(interaction.user)
+        )
+        await interaction.followup.send(
+            f"✅ 이 서버의 기본 스타일 참조를 등록했어요 (강도 {스타일강도} / 정보추출량 {정보추출량}). "
+            "이제 `/그림생성`에서 스타일참조를 따로 안 붙여도 이 이미지가 자동으로 적용됩니다. "
+            "요청마다 다른 이미지를 쓰고 싶으면 그때만 스타일참조를 직접 첨부하면 그게 우선됩니다."
+        )
+
+    @app_commands.command(name="기본스타일해제", description="등록된 서버 기본 스타일 참조 이미지를 해제합니다.")
+    @app_commands.guild_only()
+    async def clear_default_style(self, interaction: discord.Interaction):
+        await default_style_db.async_clear_default_style(self.bot.loop, interaction.guild.id)
+        await interaction.response.send_message("✅ 서버 기본 스타일 참조를 해제했습니다.")
 
 
 async def setup(bot: commands.Bot):

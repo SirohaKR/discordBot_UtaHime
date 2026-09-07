@@ -22,7 +22,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from cogs.image import GenAttempt
-from core import chat_channel_db, nai_client, prompt_writer, vibe_cache_db
+from core import chat_channel_db, default_style_db, nai_client, prompt_writer, vibe_cache_db
 from core.nai_client import NaiError
 from core.prompt_writer import PromptRefused, PromptWriterError
 
@@ -165,19 +165,34 @@ class ChatChannel(commands.Cog):
 
         vibe_encoded = None
         vibe_note = None
+        vibe_strength = 0.6
+        vibe_info = 1.0
+
+        # 채팅 중에 첨부한 이미지가 있으면 그걸 우선 쓰고, 없으면 서버 기본 스타일 참조로 대체한다.
         reference = self._reference_images.get(interaction.channel.id)
-        if reference and NAI_TOKEN:
+        ref_bytes = ref_source_note = None
+        if reference:
             ref_bytes, _ref_media_type = reference
+            ref_source_note = "채팅에 첨부된 이미지"
+        elif interaction.guild is not None:
+            default_style = await default_style_db.async_get_default_style(self.bot.loop, interaction.guild.id)
+            if default_style:
+                ref_bytes, vibe_strength, vibe_info = default_style
+                ref_source_note = "서버 기본 스타일 참조"
+
+        if ref_bytes and NAI_TOKEN:
             try:
                 image_hash = vibe_cache_db.image_hash(ref_bytes)
-                cached = await vibe_cache_db.async_get_cached(self.bot.loop, image_hash, VIBE_MODEL, 1.0)
+                cached = await vibe_cache_db.async_get_cached(self.bot.loop, image_hash, VIBE_MODEL, vibe_info)
                 if cached:
                     vibe_encoded = cached
-                    vibe_note = "🖼️ 채팅에 첨부된 이미지로 스타일 참조 적용 (캐시된 인코딩 재사용, Anlas 소모 없음)"
+                    vibe_note = f"🖼️ {ref_source_note}로 스타일 참조 적용 (캐시된 인코딩 재사용, Anlas 소모 없음)"
                 else:
-                    vibe_encoded = await nai_client.encode_vibe(NAI_TOKEN, ref_bytes, model=VIBE_MODEL)
-                    await vibe_cache_db.async_save_cached(self.bot.loop, image_hash, VIBE_MODEL, 1.0, vibe_encoded)
-                    vibe_note = "🖼️ 채팅에 첨부된 이미지로 스타일 참조 적용 (새로 인코딩, Anlas 2 소모)"
+                    vibe_encoded = await nai_client.encode_vibe(
+                        NAI_TOKEN, ref_bytes, model=VIBE_MODEL, information_extracted=vibe_info
+                    )
+                    await vibe_cache_db.async_save_cached(self.bot.loop, image_hash, VIBE_MODEL, vibe_info, vibe_encoded)
+                    vibe_note = f"🖼️ {ref_source_note}로 스타일 참조 적용 (새로 인코딩, Anlas 2 소모)"
             except NaiError as e:
                 # 스타일 참조가 실패해도 그림 생성 자체는 참조 없이 계속 진행한다.
                 await interaction.followup.send(f"⚠️ 스타일 참조 인코딩에 실패해서 참조 없이 만들게요: {e}", ephemeral=True)
@@ -197,8 +212,8 @@ class ChatChannel(commands.Cog):
             rating_label="약한 선정성 (기본)",
             seed=0,
             vibe_encoded=vibe_encoded,
-            vibe_strength=0.6,
-            vibe_information_extracted=1.0,
+            vibe_strength=vibe_strength,
+            vibe_information_extracted=vibe_info,
             vibe_note=vibe_note,
         )
         await image_cog.run_generation(interaction, attempt)
@@ -250,6 +265,7 @@ class ChatChannel(commands.Cog):
                 "`/그림생성` 문장으로 설명하면 태그로 자동 변환해서 NovelAI로 그림 생성\n"
                 "비율·모델·등급·시드·태그모드·스타일참조(Vibe Transfer) 등 옵션 지원\n"
                 "결과에 프롬프트 복사·설정 복사·다시 생성 버튼이 붙고, 결과별로 스레드가 자동 생성됨\n"
+                "`/기본스타일설정` 서버 기본 스타일 참조 이미지 등록 (이후 스타일참조 안 붙여도 자동 적용)\n"
                 "`/애나니스` NovelAI Anlas(크레딧) 잔액 확인"
             ),
             inline=False,
