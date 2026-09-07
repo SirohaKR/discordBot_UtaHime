@@ -54,7 +54,8 @@ UC_PRESETS = {
         "bad hands, mutated hands, poorly drawn hands, malformed hands, disfigured hands, "
         "extra digits, fewer digits, extra fingers, missing fingers, fused fingers, long fingers, "
         "liquid fingers, bad anatomy, bad proportions, extra limbs, missing limbs, disconnected limbs, "
-        "bad clothes, wardrobe malfunction, mismatched clothes, floating clothes, clothes through body"
+        "bad clothes, wardrobe malfunction, mismatched clothes, floating clothes, clothes through body, "
+        "2::disembodied hand::, 2::extra hands::, multiple hands, 2::wrist grab::, another person's hand"
     ),
     "nai-diffusion-4-5-curated": (
         "blurry, lowres, upscaled, artistic error, film grain, scan artifacts, worst quality, "
@@ -63,7 +64,8 @@ UC_PRESETS = {
         "bad hands, mutated hands, poorly drawn hands, malformed hands, disfigured hands, "
         "extra digits, fewer digits, extra fingers, missing fingers, fused fingers, long fingers, "
         "liquid fingers, bad anatomy, bad proportions, extra limbs, missing limbs, disconnected limbs, "
-        "bad clothes, wardrobe malfunction, mismatched clothes, floating clothes, clothes through body"
+        "bad clothes, wardrobe malfunction, mismatched clothes, floating clothes, clothes through body, "
+        "2::disembodied hand::, 2::extra hands::, multiple hands, 2::wrist grab::, another person's hand"
     ),
 }
 
