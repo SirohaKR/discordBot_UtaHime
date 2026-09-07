@@ -113,6 +113,22 @@ def _build_result_embed(attempt: GenAttempt, requester_display_name: str) -> dis
     return embed
 
 
+def _split_tags(tags: str) -> list[str]:
+    return [t.strip() for t in tags.split(",") if t.strip()]
+
+
+def _removed_tags(old_tags: str, new_tags: str) -> list[str]:
+    """수정 전 태그 중 수정 후 목록에서 사라진(=교체된) 것들을 찾는다.
+
+    edit_tags는 "언급 안 된 태그는 그대로 유지"하도록 지시되어 있으므로, 사라진 태그는
+    거의 항상 이번 수정으로 교체된 속성(예: 이전 머리색)이다. 이걸 네거티브에 자동으로
+    넣어주면, 특히 스타일참조(Vibe Transfer)가 걸려있을 때 레퍼런스 이미지의 색/속성이
+    다시 섞여 들어오는 걸 억제하는 데 도움이 된다.
+    """
+    new_lower = {t.lower() for t in _split_tags(new_tags)}
+    return [t for t in _split_tags(old_tags) if t.lower() not in new_lower]
+
+
 class EditPromptModal(discord.ui.Modal, title="수정하기"):
     """전체를 다시 쓰는 대신, 대화하듯 "이 부분만 바꿔줘"라고 지시하면 기존 태그 목록에서
     충돌하는 속성만 골라 교체한다 (prompt_writer.edit_tags 참고 — 뒤에 이어붙이지 않음)."""
@@ -157,6 +173,19 @@ class EditPromptModal(discord.ui.Modal, title="수정하기"):
             return
 
         new_negative_input = str(self.negative_input.value).strip()
+        base_negative = new_negative_input or self.attempt.negative
+
+        # 이번 수정으로 사라진(=교체된) 태그는 자동으로 네거티브에 추가한다.
+        # (스타일참조를 쓰는 중이면 레퍼런스 이미지의 이전 속성이 계속 섞여 들어오는 걸 막아준다)
+        auto_negative_tags = _removed_tags(self.attempt.used_prompt, new_tags)
+        note = None
+        if auto_negative_tags:
+            auto_negative = ", ".join(auto_negative_tags)
+            base_negative = f"{base_negative}, {auto_negative}" if base_negative else auto_negative
+            note = f"🚫 바뀌기 전 속성을 네거티브에 자동 추가했어요: `{auto_negative}`"
+            if self.attempt.vibe_note:
+                note += "\n스타일참조를 쓰는 중이라 그래도 이전 색/속성이 계속 보이면 스타일강도를 낮춰보세요."
+
         new_attempt = replace(
             self.attempt,
             requester_id=interaction.user.id,
@@ -164,9 +193,11 @@ class EditPromptModal(discord.ui.Modal, title="수정하기"):
             tag_mode=True,
             description="",
             used_prompt=new_tags,
-            negative=new_negative_input or self.attempt.negative,
+            negative=base_negative,
             seed=0,  # 내용이 바뀌므로 시드도 새로 뽑는다.
         )
+        if note:
+            await interaction.followup.send(note, ephemeral=True)
         await self.cog.run_generation(interaction, new_attempt)
 
 
@@ -311,16 +342,25 @@ class ImageGen(commands.Cog):
             if thread is None:
                 try:
                     thread = await self.bot.fetch_channel(attempt.thread_id)
-                except discord.HTTPException:
+                except Exception:
                     thread = None
+            message = None
             if thread is not None:
-                message = await thread.send(embed=embed, file=file, view=view)
-                await interaction.followup.send(f"✅ 스레드에 새 결과를 올렸어요 → {thread.mention}", ephemeral=True)
-            else:
+                try:
+                    message = await thread.send(embed=embed, file=file, view=view)
+                    await interaction.followup.send(f"✅ 스레드에 새 결과를 올렸어요 → {thread.mention}", ephemeral=True)
+                except Exception as e:
+                    print(f"⚠️ [WARN] 스레드에 결과 전송 실패, 원래 채널로 대체: {e}")
+                    message = None
+            if message is None:
                 message = await interaction.followup.send(embed=embed, file=file, view=view)
         else:
             message = await interaction.followup.send(embed=embed, file=file, view=view)
             # 최초 생성(스레드가 아직 없을 때)이면 결과 메시지에서 스레드를 새로 판다.
+            # 이 블록은 어디까지나 부가 기능이라, 실패해도 이미 보낸 결과 메시지에는 영향이
+            # 없어야 한다 — 그래서 discord.py가 던질 수 있는 예외를 넓게 잡아서 조용히 넘어간다
+            # (좁게 HTTPException만 잡으면 ClientException 등 다른 예외가 새어나가 슬래시 명령
+            # 자체가 실패한 것처럼 "❌ 처리 중 오류가 발생했습니다"가 뜨는 문제가 있었음).
             if attempt.thread_id is None and isinstance(interaction.channel, discord.TextChannel):
                 try:
                     thread_title = (attempt.description.strip() if attempt.description else "") or attempt.used_prompt
@@ -331,8 +371,8 @@ class ImageGen(commands.Cog):
                         name="🧵 스레드", value=f"다시 생성/수정 결과는 {thread.mention} 안에서 이어집니다.", inline=False
                     )
                     await message.edit(embed=embed, view=view)
-                except discord.HTTPException as e:
-                    print(f"⚠️ [WARN] 결과 스레드 생성 실패: {e}")
+                except Exception as e:
+                    print(f"⚠️ [WARN] 결과 스레드 생성 실패 (이미지 전송 자체는 정상): {e}")
 
         view.message = message
 
