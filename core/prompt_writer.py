@@ -81,11 +81,25 @@ EDIT_SYSTEM_PROMPT = """당신은 이미 만들어진 NovelAI(Danbooru 태그) �
 - 완전히 새로운 요소(포즈, 소품, 배경 등)를 추가해달라는 요청이면 적절한 위치(캐릭터 외형 뒤, 배경 태그 앞 등)에
   자연스럽게 끼워 넣으세요.
 
+네거티브 판단 (중요 — 이걸 잘못하면 사용자가 원치 않는 태그가 억제됩니다):
+- 사용자가 명시적으로 "빼줘/없애줘/제거해줘/지워줘/안 나오게 해줘" 등으로 뭔가를 없애달라고 한 경우에만,
+  그 대상을 네거티브 후보로 올리세요. 예: "수국은 지워줘" -> "hydrangea"류 태그를 네거티브 후보에 추가.
+- 속성을 다른 값으로 "교체"한 경우(예: 머리색을 실버에서 보라로), 스타일 참조 이미지가 있을 때 예전
+  값이 다시 섞여 들어오는 걸 막기 위해 그 예전 값도 네거티브 후보에 추가하세요. 예: "머리 보라색으로"
+  -> 기존 "silver hair"를 네거티브 후보에 추가.
+- 절대 네거티브 후보에 넣으면 안 되는 경우: 태그 표현을 더 구체화/보강했을 뿐 같은 대상을 계속 그리는
+  경우입니다. 예를 들어 "세일러복은 새하얘"는 "sailor uniform"을 지우거나 대체하는 게 아니라
+  "white sailor uniform"으로 구체화하는 것이므로, "sailor uniform"을 네거티브에 넣으면 절대 안 됩니다.
+  새로 추가되는 요소 자체도 네거티브에 넣지 마세요. 애매하면 네거티브 후보에 넣지 않는 쪽을 택하세요.
+
 출력 규칙:
-- 출력은 태그를 콤마(,)로 구분한 한 줄만 출력합니다. 설명, 따옴표, 번호 매기기, 마크다운 금지.
+- 정확히 두 줄을 출력하세요. 다른 설명, 따옴표, 번호 매기기, 마크다운 금지.
+  1번째 줄: 수정된 태그 콤마(,) 구분 목록.
+  2번째 줄: "NEGATIVE: " 로 시작하고, 위 기준에 따른 네거티브 후보를 콤마로 나열 (없으면 "NEGATIVE: " 만 쓰고
+  뒤에 아무것도 쓰지 마세요. 이 줄은 항상 출력해야 합니다, 비어있어도).
 - rating 태그나 masterpiece 같은 품질 태그가 현재 목록에 없다면 새로 추가하지 마세요 (시스템이 별도 처리).
 - 실존 인물을 특정한 모습으로 바꿔달라는 요청이거나, 미성년자로 읽히는 캐릭터를 성적으로 묘사하도록 만드는
-  수정 요청이면 태그를 고치지 말고 "REFUSED: <한 줄 이유>"만 출력하세요.
+  수정 요청이면 태그를 고치지 말고 "REFUSED: <한 줄 이유>"만 출력하세요 (이 경우엔 한 줄만).
 """
 
 IMAGE_READY_MARKER = "[[IMAGE_READY]]"
@@ -235,14 +249,27 @@ async def write_tags(description: str = "", image_bytes: bytes = None, image_med
     return await _ask_claude(SYSTEM_PROMPT, [{"role": "user", "content": content}])
 
 
-async def edit_tags(current_tags: str, instruction: str) -> str:
+async def edit_tags(current_tags: str, instruction: str) -> tuple:
     """기존 태그 목록을 대화형 수정 요청에 맞게 고친다 (덧붙이기가 아니라 속성 치환).
 
     "머리 보라색으로, 눈 검은색에 하트동공 박고 블라우스 흰색으로" 같은 짧은 지시를 현재 태그 목록에
     반영해서, 충돌하는 기존 태그(예: 이전 머리색)를 제거하고 새 태그로 교체한 전체 목록을 돌려준다.
+
+    반환값은 (새_태그_목록, 네거티브_후보) 튜플. 네거티브_후보는 "빼줘/없애줘"류 명시적 제거 요청이나
+    교체된 속성의 이전 값만 담기고, 색상 지정처럼 속성을 구체화만 한 경우는 안 담긴다 — 이 판단은
+    문자열 비교가 아니라 수정 요청의 맥락을 Claude가 직접 판단해서 결정한다 (EDIT_SYSTEM_PROMPT 참고).
     """
     content = f"[현재 태그 목록]\n{current_tags}\n\n[수정 요청]\n{instruction}"
-    return await _ask_claude(EDIT_SYSTEM_PROMPT, [{"role": "user", "content": content}])
+    raw = await _ask_claude(EDIT_SYSTEM_PROMPT, [{"role": "user", "content": content}])
+
+    lines = [line.strip() for line in raw.splitlines() if line.strip()]
+    new_tags = lines[0] if lines else ""
+    negative_additions = ""
+    for line in lines[1:]:
+        if line.upper().startswith("NEGATIVE:"):
+            negative_additions = line.split(":", 1)[1].strip()
+            break
+    return new_tags, negative_additions
 
 
 async def chat_reply(

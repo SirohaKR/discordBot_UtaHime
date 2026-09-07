@@ -113,22 +113,6 @@ def _build_result_embed(attempt: GenAttempt, requester_display_name: str) -> dis
     return embed
 
 
-def _split_tags(tags: str) -> list[str]:
-    return [t.strip() for t in tags.split(",") if t.strip()]
-
-
-def _removed_tags(old_tags: str, new_tags: str) -> list[str]:
-    """수정 전 태그 중 수정 후 목록에서 사라진(=교체된) 것들을 찾는다.
-
-    edit_tags는 "언급 안 된 태그는 그대로 유지"하도록 지시되어 있으므로, 사라진 태그는
-    거의 항상 이번 수정으로 교체된 속성(예: 이전 머리색)이다. 이걸 네거티브에 자동으로
-    넣어주면, 특히 스타일참조(Vibe Transfer)가 걸려있을 때 레퍼런스 이미지의 색/속성이
-    다시 섞여 들어오는 걸 억제하는 데 도움이 된다.
-    """
-    new_lower = {t.lower() for t in _split_tags(new_tags)}
-    return [t for t in _split_tags(old_tags) if t.lower() not in new_lower]
-
-
 class EditPromptModal(discord.ui.Modal, title="수정하기"):
     """전체를 다시 쓰는 대신, 대화하듯 "이 부분만 바꿔줘"라고 지시하면 기존 태그 목록에서
     충돌하는 속성만 골라 교체한다 (prompt_writer.edit_tags 참고 — 뒤에 이어붙이지 않음)."""
@@ -164,7 +148,7 @@ class EditPromptModal(discord.ui.Modal, title="수정하기"):
 
         instruction = str(self.instruction_input.value).strip()
         try:
-            new_tags = await prompt_writer.edit_tags(self.attempt.used_prompt, instruction)
+            new_tags, auto_negative = await prompt_writer.edit_tags(self.attempt.used_prompt, instruction)
         except PromptRefused as e:
             await interaction.followup.send(f"🚫 요청이 거부되었습니다: {e}")
             return
@@ -175,14 +159,12 @@ class EditPromptModal(discord.ui.Modal, title="수정하기"):
         new_negative_input = str(self.negative_input.value).strip()
         base_negative = new_negative_input or self.attempt.negative
 
-        # 이번 수정으로 사라진(=교체된) 태그는 자동으로 네거티브에 추가한다.
-        # (스타일참조를 쓰는 중이면 레퍼런스 이미지의 이전 속성이 계속 섞여 들어오는 걸 막아준다)
-        auto_negative_tags = _removed_tags(self.attempt.used_prompt, new_tags)
+        # 명시적 제거 요청("빼줘"/"없애줘")이나 교체된 속성의 이전 값만 네거티브 후보로 온다 —
+        # "세일러복은 새하얘" 같은 구체화 요청은 Claude가 판단해서 여기 안 들어온다 (edit_tags 참고).
         note = None
-        if auto_negative_tags:
-            auto_negative = ", ".join(auto_negative_tags)
+        if auto_negative:
             base_negative = f"{base_negative}, {auto_negative}" if base_negative else auto_negative
-            note = f"🚫 바뀌기 전 속성을 네거티브에 자동 추가했어요: `{auto_negative}`"
+            note = f"🚫 네거티브에 자동 추가했어요: `{auto_negative}`"
             if self.attempt.vibe_note:
                 note += "\n스타일참조를 쓰는 중이라 그래도 이전 색/속성이 계속 보이면 스타일강도를 낮춰보세요."
 
