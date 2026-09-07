@@ -70,6 +70,9 @@ EDIT_SYSTEM_PROMPT = """당신은 이미 만들어진 NovelAI(Danbooru 태그) �
 말합니다 (예: "머리 보라색으로, 눈 검은색에 하트동공 박히고 원피스를 흰 블라우스로 바꿔줘").
 
 핵심 규칙 (반드시 지켜야 함 — 이걸 어기면 실패입니다):
+- 출력 태그 개수는 [수정 요청]에서 실제로 바뀌는 부분을 뺀 나머지가 [현재 태그 목록]과 거의 비슷해야
+  합니다. 통째로 새로 쓰거나, 요청하지 않은 부분까지 대폭 줄이거나 요약하는 건 명백한 실패입니다 —
+  당신의 역할은 "다시 쓰기"가 아니라 "그 부분만 콕 집어 고치기"입니다.
 - 뒤에 새 태그를 이어붙이는 방식은 절대 금지입니다. 요청과 충돌하는 기존 태그는 완전히 제거하고, 그 자리를
   새 태그로 교체하세요.
   예) 현재 "silver hair"가 있는데 "머리 보라색으로"라고 하면 -> "silver hair"를 지우고 "purple hair"로 교체.
@@ -195,7 +198,13 @@ class PromptRefused(RuntimeError):
 
 
 async def _ask_claude(
-    system: str, messages: list, *, max_tokens: int = 300, check_refused: bool = True, tools: list = None
+    system: str,
+    messages: list,
+    *,
+    max_tokens: int = 300,
+    check_refused: bool = True,
+    tools: list = None,
+    effort: str = None,
 ) -> str:
     if not os.getenv("ANTHROPIC_API_KEY"):
         raise PromptWriterError("ANTHROPIC_API_KEY가 설정되지 않았습니다.")
@@ -204,6 +213,8 @@ async def _ask_claude(
     kwargs = {"model": MODEL, "max_tokens": max_tokens, "system": system, "messages": messages}
     if tools:
         kwargs["tools"] = tools
+    if effort:
+        kwargs["output_config"] = {"effort": effort}
 
     last_error: Exception = PromptWriterError("알 수 없는 오류")
     for attempt in range(2):  # API 차원 안전필터 오탐(false positive)은 재시도하면 통과하는 경우가 많다.
@@ -274,7 +285,9 @@ async def edit_tags(current_tags: str, instruction: str) -> tuple:
     문자열 비교가 아니라 수정 요청의 맥락을 Claude가 직접 판단해서 결정한다 (EDIT_SYSTEM_PROMPT 참고).
     """
     content = f"[현재 태그 목록]\n{current_tags}\n\n[수정 요청]\n{instruction}"
-    raw = await _ask_claude(EDIT_SYSTEM_PROMPT, [{"role": "user", "content": content}])
+    # 기존 태그를 실수로 통째로 날려먹는 사고를 줄이기 위해 effort를 기본값(high)보다 높여서
+    # 더 신중하게 판단하게 한다.
+    raw = await _ask_claude(EDIT_SYSTEM_PROMPT, [{"role": "user", "content": content}], effort="xhigh")
 
     lines = [line.strip() for line in raw.splitlines() if line.strip()]
     new_tags = lines[0] if lines else ""

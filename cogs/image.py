@@ -156,6 +156,19 @@ class EditPromptModal(discord.ui.Modal, title="수정하기"):
             await interaction.followup.send(f"❌ 프롬프트 수정 실패: {e}")
             return
 
+        # AI 판단만 믿지 않는 안전장치: 태그가 통째로 비거나 절반 넘게 날아갔으면 십중팔구 사고이지
+        # 의도된 수정이 아니다. 그대로 반영하지 말고 원본을 지킨 채 다시 시도하게 안내한다.
+        old_count = len([t for t in self.attempt.used_prompt.split(",") if t.strip()])
+        new_count = len([t for t in new_tags.split(",") if t.strip()])
+        if new_count < max(3, old_count // 2):
+            await interaction.followup.send(
+                "⚠️ 수정 결과가 원본보다 태그가 너무 많이 줄어들어서(사고 방지) 반영하지 않았어요. "
+                "요청을 좀 더 구체적으로 나눠서 다시 시도해주세요.\n"
+                f"(원본 {old_count}개 → 결과 {new_count}개: `{new_tags[:300]}`)",
+                ephemeral=True,
+            )
+            return
+
         new_negative_input = str(self.negative_input.value).strip()
         base_negative = new_negative_input or self.attempt.negative
 
