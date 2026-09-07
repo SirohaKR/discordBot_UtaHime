@@ -226,6 +226,62 @@ class ChatChannel(commands.Cog):
         self._reference_images.pop(interaction.channel.id, None)
         await interaction.response.send_message("🔄 대화 기억과 스타일 참조 이미지를 초기화했어요, 회원님.", ephemeral=True)
 
+    @app_commands.command(name="가이드", description="이 봇이 할 수 있는 걸 전부 자세히 안내합니다.")
+    async def guide(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="📖 시로챤넬 서포트 란다 — 기능 가이드",
+            description="이 서버 봇이 할 수 있는 걸 전부 정리해드릴게요, 회원님.",
+            color=discord.Color.blurple(),
+        )
+        embed.add_field(
+            name="🎵 음악 재생",
+            value=(
+                "`/play` 검색어·유튜브 링크를 대기열에 추가\n"
+                "`/join` `/leave` 음성 채널 입장/퇴장\n"
+                "`/volume` 볼륨 조회·설정\n"
+                "`/플레이리스트추가` `/플레이리스트목록` `/플레이리스트삭제`\n"
+                "전용 채널의 컨트롤러 버튼: 일시정지/스킵/셔플/반복/대기열 보기/정지"
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="🎨 이미지 생성",
+            value=(
+                "`/그림생성` 문장으로 설명하면 태그로 자동 변환해서 NovelAI로 그림 생성\n"
+                "비율·모델·등급·시드·태그모드·스타일참조(Vibe Transfer) 등 옵션 지원\n"
+                "결과에 프롬프트 복사·설정 복사·다시 생성·수정하기 버튼이 붙고, 결과별로 스레드가 자동 생성됨\n"
+                "`/애나니스` NovelAI Anlas(크레딧) 잔액 확인"
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="💬 프롬프트 추천 채널",
+            value="지정된 채널에 문장이나 이미지를 올리면 어울리는 Danbooru 태그를 추천해드려요.",
+            inline=False,
+        )
+        embed.add_field(
+            name="🗨️ 자유 채팅 (저예요!)",
+            value=(
+                "지정된 채널에서 명령어 없이 그냥 편하게 말 걸어주시면 돼요.\n"
+                "그림 아이디어를 나누다가 준비됐다 싶으면 답장에 그림 생성 버튼이 자동으로 붙어요.\n"
+                "이미지를 첨부하시면 그 화풍을 기억해뒀다가 그림 만들 때 스타일 참조로 반영해드려요.\n"
+                "URL을 보여주시거나 최신 정보가 필요한 질문도 직접 찾아서 답해드릴 수 있어요."
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="⚙️ 채널 설정 (관리용)",
+            value=(
+                "`/그림채널설정` `/그림채널설정해제`\n"
+                "`/프롬프트채널설정` `/프롬프트채널설정해제`\n"
+                "`/채팅채널설정` `/채팅채널설정해제` `/채팅초기화`\n"
+                "`/설정` 음악 전용 채널 지정"
+            ),
+            inline=False,
+        )
+        embed.set_footer(text="더 궁금한 게 있으면 채팅 채널에서 저한테 편하게 물어보세요.")
+        await interaction.response.send_message(embed=embed)
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(ChatChannel(bot))
