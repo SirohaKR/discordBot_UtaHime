@@ -12,6 +12,7 @@ DB에 영구 저장할 필요는 없다고 판단). 여러 명이 같은 채널�
 """
 
 import asyncio
+import os
 import time
 from typing import Optional
 
@@ -20,11 +21,15 @@ from discord import app_commands
 from discord.ext import commands
 
 from cogs.image import GenAttempt
-from core import chat_channel_db, prompt_writer
+from core import chat_channel_db, nai_client, prompt_writer, vibe_cache_db
+from core.nai_client import NaiError
 from core.prompt_writer import PromptRefused, PromptWriterError
+
+NAI_TOKEN = os.getenv("NAI_TOKEN")
 
 MAX_HISTORY_MESSAGES = 20  # 최근 10턴(사용자+봇) 정도만 유지 — 토큰/비용 억제
 CHAT_COOLDOWN_SECONDS = 5.0
+VIBE_MODEL = "nai-diffusion-4-5-full"  # 채팅에서 첨부한 이미지를 인코딩할 때 쓰는 고정 모델
 
 
 class ChatToImageView(discord.ui.View):
@@ -54,6 +59,9 @@ class ChatChannel(commands.Cog):
         self._history: dict[int, list[dict]] = {}
         self._locks: dict[int, asyncio.Lock] = {}
         self._last_used: dict[int, float] = {}
+        # 채널별로 가장 최근에 첨부된 이미지 (스타일 참조용). 새 이미지가 오면 덮어쓰고,
+        # /채팅초기화로 지울 수 있다.
+        self._reference_images: dict[int, tuple[bytes, str]] = {}
 
     def _get_lock(self, channel_id: int) -> asyncio.Lock:
         lock = self._locks.get(channel_id)
@@ -72,8 +80,15 @@ class ChatChannel(commands.Cog):
             return
 
         text = message.content.strip()
-        if not text or text.startswith(self.bot.command_prefix):
-            return  # 빈 메시지나 다른 명령어는 무시.
+        if text.startswith(self.bot.command_prefix):
+            return  # 다른 명령어는 무시.
+
+        image_attachment = next(
+            (a for a in message.attachments if (a.content_type or "").split(";")[0].startswith("image/")),
+            None,
+        )
+        if not text and not image_attachment:
+            return  # 빈 메시지나 지원 안 하는 첨부파일만 있으면 무시.
 
         now = time.monotonic()
         last = self._last_used.get(message.author.id, 0.0)
@@ -81,18 +96,30 @@ class ChatChannel(commands.Cog):
             return
         self._last_used[message.author.id] = now
 
+        image_bytes = None
+        image_media_type = None
+        if image_attachment:
+            image_bytes = await image_attachment.read()
+            image_media_type = (image_attachment.content_type or "image/png").split(";")[0]
+            self._reference_images[message.channel.id] = (image_bytes, image_media_type)
+
         async with self._get_lock(message.channel.id):
             history = self._history.setdefault(message.channel.id, [])
-            labeled_message = f"{message.author.display_name}: {text}"
+            spoken_text = text or "(이미지를 첨부함)"
+            labeled_message = f"{message.author.display_name}: {spoken_text}"
 
             async with message.channel.typing():
                 try:
-                    reply = await prompt_writer.chat_reply(history, labeled_message)
+                    reply = await prompt_writer.chat_reply(
+                        history, labeled_message, image_bytes=image_bytes, image_media_type=image_media_type
+                    )
                 except PromptWriterError as e:
                     await message.reply(f"❌ {e}", mention_author=False)
                     return
 
-            history.append({"role": "user", "content": labeled_message})
+            # history에는 이미지 원본 대신 첨부됐다는 표시만 남긴다 (매 턴 다시 보내면 토큰 낭비).
+            history_message = labeled_message + (" [이미지 첨부됨 — 스타일 참조로 저장됨]" if image_attachment else "")
+            history.append({"role": "user", "content": history_message})
             history.append({"role": "assistant", "content": reply})
             del history[:-MAX_HISTORY_MESSAGES]
 
@@ -127,6 +154,25 @@ class ChatChannel(commands.Cog):
             await interaction.followup.send(f"❌ 프롬프트 변환 실패: {e}")
             return
 
+        vibe_encoded = None
+        vibe_note = None
+        reference = self._reference_images.get(interaction.channel.id)
+        if reference and NAI_TOKEN:
+            ref_bytes, _ref_media_type = reference
+            try:
+                image_hash = vibe_cache_db.image_hash(ref_bytes)
+                cached = await vibe_cache_db.async_get_cached(self.bot.loop, image_hash, VIBE_MODEL, 1.0)
+                if cached:
+                    vibe_encoded = cached
+                    vibe_note = "🖼️ 채팅에 첨부된 이미지로 스타일 참조 적용 (캐시된 인코딩 재사용, Anlas 소모 없음)"
+                else:
+                    vibe_encoded = await nai_client.encode_vibe(NAI_TOKEN, ref_bytes, model=VIBE_MODEL)
+                    await vibe_cache_db.async_save_cached(self.bot.loop, image_hash, VIBE_MODEL, 1.0, vibe_encoded)
+                    vibe_note = "🖼️ 채팅에 첨부된 이미지로 스타일 참조 적용 (새로 인코딩, Anlas 2 소모)"
+            except NaiError as e:
+                # 스타일 참조가 실패해도 그림 생성 자체는 참조 없이 계속 진행한다.
+                await interaction.followup.send(f"⚠️ 스타일 참조 인코딩에 실패해서 참조 없이 만들게요: {e}", ephemeral=True)
+
         attempt = GenAttempt(
             requester_id=interaction.user.id,
             description="",
@@ -141,10 +187,10 @@ class ChatChannel(commands.Cog):
             rating="sensitive",
             rating_label="약한 선정성 (기본)",
             seed=0,
-            vibe_encoded=None,
+            vibe_encoded=vibe_encoded,
             vibe_strength=0.6,
             vibe_information_extracted=1.0,
-            vibe_note=None,
+            vibe_note=vibe_note,
         )
         await image_cog.run_generation(interaction, attempt)
 
@@ -153,8 +199,9 @@ class ChatChannel(commands.Cog):
     async def set_chat_channel(self, interaction: discord.Interaction):
         await chat_channel_db.async_set_channel(self.bot.loop, interaction.guild.id, interaction.channel.id)
         await interaction.response.send_message(
-            f"✅ 이제 {interaction.channel.mention} 에서 저랑 자유롭게 대화할 수 있어요. "
-            "그림 아이디어를 얘기하다가 답장에 달린 🎨 버튼을 누르면 바로 그림도 만들 수 있어요."
+            f"✅ 이제 {interaction.channel.mention} 에서 저와 자유롭게 대화하실 수 있어요, 회원님. "
+            "그림 아이디어를 얘기하다가 답장에 달린 🎨 버튼을 누르시면 바로 그림도 만들어드려요. "
+            "이미지를 첨부하시면 그 화풍을 스타일 참조로 기억해뒀다가 그림 만들 때 반영해드립니다."
         )
 
     @app_commands.command(name="채팅채널설정해제", description="자유 채팅 채널 지정을 해제합니다.")
@@ -163,11 +210,12 @@ class ChatChannel(commands.Cog):
         await chat_channel_db.async_clear_channel(self.bot.loop, interaction.guild.id)
         await interaction.response.send_message("✅ 채팅 채널 지정을 해제했습니다.")
 
-    @app_commands.command(name="채팅초기화", description="이 채널에서 저와 나눈 대화 기억을 초기화합니다.")
+    @app_commands.command(name="채팅초기화", description="이 채널에서 저와 나눈 대화 기억(+저장된 스타일 참조 이미지)을 초기화합니다.")
     @app_commands.guild_only()
     async def reset_chat(self, interaction: discord.Interaction):
         self._history.pop(interaction.channel.id, None)
-        await interaction.response.send_message("🔄 대화 기억을 초기화했어요.", ephemeral=True)
+        self._reference_images.pop(interaction.channel.id, None)
+        await interaction.response.send_message("🔄 대화 기억과 스타일 참조 이미지를 초기화했어요, 회원님.", ephemeral=True)
 
 
 async def setup(bot: commands.Bot):

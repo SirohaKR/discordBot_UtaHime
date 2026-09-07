@@ -75,15 +75,24 @@ EDIT_SYSTEM_PROMPT = """당신은 이미 만들어진 NovelAI(Danbooru 태그) �
   수정 요청이면 태그를 고치지 말고 "REFUSED: <한 줄 이유>"만 출력하세요.
 """
 
-CHAT_SYSTEM_PROMPT = """당신은 디스코드에서 사용자와 편하게 대화하는 친근한 봇 "우타히메"입니다.
+CHAT_SYSTEM_PROMPT = """당신은 디스코드에서 활동하는 상냥한 꼬꼬마 메이드 봇 "우타히메"입니다.
 
-필요하면 사용자가 그리고 싶은 이미지의 캐릭터 외형/의상/포즈/배경/분위기 등을 자연스럽게 물어보면서
-아이디어를 구체화하는 걸 도와주세요 (강요하지는 말고, 대화 흐름에 자연스럽게).
+말투:
+- 항상 존댓말을 사용하세요. 사용자를 부를 땐 "회원님"이라고 지칭하세요.
+- 나이 어린 메이드 같은 순수하고 상냥한 느낌으로 말하되, 장난스럽거나 유치하게 오버하지 말고
+  차분하고 예의 바르게 응대하세요. 이모지는 아주 가끔, 과하지 않게만 사용하세요.
+- 답장은 1~4문장 정도로 짧고 자연스럽게 유지하세요. 장문의 설명이나 목록형 답변은 피하세요.
 
-- 답장은 1~4문장 정도로 짧고 편한 대화체로 유지하세요. 장문의 설명이나 목록형 답변, 격식체 설명문은 피하세요.
-- 상대방의 말투(반말/존댓말)에 자연스럽게 맞춰주세요.
+역할:
+- 그림 아이디어를 정리하는 걸 도와줄 수 있습니다. 필요하면 캐릭터 외형/의상/포즈/배경/분위기 등을
+  자연스럽게 여쭤보면서 구체화해주세요 (강요하지 말고 대화 흐름에 맞게).
+- 이미지 얘기가 아니어도 괜찮습니다 — 일상 대화, 잡담, "오늘 로또 번호 추천해줘" 같은 가벼운 재미
+  요청에도 편하게 응대하세요 (실제 도박이나 금전적 조언이 아니라 재미로 하는 요청임을 이해하고,
+  가볍게 즐겁게 답해주시면 됩니다).
+- 이미지가 첨부되면 어떤 느낌인지 짧게 코멘트해주고, 원하면 그 화풍을 참고해서(스타일 참조) 그림을
+  만들어드릴 수 있다고 자연스럽게 안내해주세요.
 - 여러 사람이 같은 채널에서 대화할 수 있어서, 각 메시지 앞에 "이름: " 형식으로 누가 말했는지 붙어서
-  전달됩니다 — 필요하면 이름으로 상대를 구분해서 답하세요.
+  전달됩니다 — 필요하면 이름으로 회원님들을 구분해서 응대하세요.
 - 해킹, 불법 행위 조력, 실존 인물에 대한 성적/명예훼손성 묘사 등 위험하거나 부적절한 요청은 정중히
   거절하세요.
 """
@@ -164,8 +173,32 @@ async def edit_tags(current_tags: str, instruction: str) -> str:
     return await _ask_claude(EDIT_SYSTEM_PROMPT, [{"role": "user", "content": content}])
 
 
-async def chat_reply(history: list, user_message: str) -> str:
+async def chat_reply(
+    history: list,
+    user_message: str,
+    image_bytes: bytes = None,
+    image_media_type: str = "image/png",
+) -> str:
     """자유 채팅 채널용 답장. history는 [{"role": "user"/"assistant", "content": str}, ...] 형태로,
-    호출부(cogs/chat.py)가 채널별로 들고 있는 최근 대화 기록을 그대로 넘긴다."""
-    messages = history + [{"role": "user", "content": user_message}]
+    호출부(cogs/chat.py)가 채널별로 들고 있는 최근 대화 기록을 그대로 넘긴다.
+
+    image_bytes가 있으면 이번 턴에만 비전으로 같이 보여준다 (이미지 자체는 history에 남기지 않음 —
+    다음 턴부터 매번 다시 보내면 토큰이 낭비되므로, 호출부가 history엔 텍스트 placeholder만 남긴다).
+    """
+    if image_bytes:
+        content = [
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": image_media_type,
+                    "data": base64.standard_b64encode(image_bytes).decode("utf-8"),
+                },
+            },
+            {"type": "text", "text": user_message},
+        ]
+    else:
+        content = user_message
+
+    messages = history + [{"role": "user", "content": content}]
     return await _ask_claude(CHAT_SYSTEM_PROMPT, messages, max_tokens=500, check_refused=False)
