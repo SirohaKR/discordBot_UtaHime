@@ -105,6 +105,25 @@ async def update_command(ctx):
         await ctx.send("ℹ️ 이미 최신 버전이거나 업데이트에 실패했습니다 (콘솔 로그 확인).")
 
 
+@bot.command(name="동기화", aliases=["sync"])
+@commands.is_owner()
+async def sync_command(ctx):
+    """이 서버에 슬래시 명령어를 즉시 동기화한다.
+
+    on_ready의 전역(global) 동기화는 디스코드 쪽 캐시 때문에 각 서버에 실제로 반영되기까지
+    최대 1시간까지 걸릴 수 있다 (음악 cog에 설정된 "홈 서버"만 재시작 시 즉시 동기화됨).
+    새 서버에 봇을 초대했거나 명령어를 방금 바꿨는데 안 보일 때, 이 명령을 그 서버에서
+    실행하면 디스코드 쪽 지연과 상관없이 바로 반영된다.
+    """
+    if not ctx.guild:
+        await ctx.send("❌ 서버 안에서만 사용할 수 있습니다.")
+        return
+    guild_obj = discord.Object(id=ctx.guild.id)
+    bot.tree.copy_global_to(guild=guild_obj)
+    synced = await bot.tree.sync(guild=guild_obj)
+    await ctx.send(f"✅ 이 서버에 슬래시 명령어 {len(synced)}개를 즉시 동기화했습니다.")
+
+
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, (commands.CommandNotFound, commands.CheckFailure, HandledCommandError)):
