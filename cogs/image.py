@@ -21,6 +21,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from core import character_preset_db, default_style_db, image_settings_db, nai_client, prompt_writer, vibe_cache_db
+from core.bg_remove import remove_background_bytes
 from core.error_notify import notify_error
 from core.nai_client import NaiAuthError, NaiError, NaiRateLimitError
 from core.prompt_writer import PromptRefused, PromptWriterError
@@ -114,10 +115,11 @@ def _build_result_embed(attempt: GenAttempt, requester_display_name: str) -> dis
 
 
 class ImageResultView(discord.ui.View):
-    def __init__(self, cog: "ImageGen", attempt: GenAttempt):
+    def __init__(self, cog: "ImageGen", attempt: GenAttempt, png_bytes: bytes = None):
         super().__init__(timeout=1800)  # 30분 후 버튼 비활성화
         self.cog = cog
         self.attempt = attempt
+        self.png_bytes = png_bytes  # 배경 투명화 버튼용 원본 이미지
         self.message: Optional[discord.Message] = None
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -176,6 +178,26 @@ class ImageResultView(discord.ui.View):
         # 같은 프롬프트/설정 그대로, 시드만 새로 뽑아 다른 결과를 받는다.
         new_attempt = replace(self.attempt, requester_id=interaction.user.id, seed=0)
         await self.cog.run_generation(interaction, new_attempt)
+
+    @discord.ui.button(label="배경 투명화", emoji="🖼️", style=discord.ButtonStyle.secondary, row=1)
+    async def remove_background(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not self.png_bytes:
+            await interaction.response.send_message("❌ 원본 이미지를 찾을 수 없어요.", ephemeral=True)
+            return
+        if not self.cog.check_and_hit_button_cooldown(interaction.user.id):
+            await interaction.response.send_message(
+                "⏳ 너무 자주 요청했습니다. 잠시 후 다시 시도하세요.", ephemeral=True
+            )
+            return
+        await interaction.response.defer(thinking=True)
+        try:
+            output_bytes = await asyncio.to_thread(remove_background_bytes, self.png_bytes)
+        except Exception as e:
+            print(f"❌ [ERROR] 배경 제거 실패: {e}")
+            await interaction.followup.send(f"❌ 배경 제거에 실패했어요: {e}", ephemeral=True)
+            return
+        file = discord.File(io.BytesIO(output_bytes), filename="transparent.png")
+        await interaction.followup.send("🖼️ 배경을 투명하게 뺐어요.", file=file)
 
 
 class ImageGen(commands.Cog):
@@ -241,7 +263,7 @@ class ImageGen(commands.Cog):
 
         file = discord.File(io.BytesIO(result.png_bytes), filename="nai_image.png")
         embed = _build_result_embed(attempt, interaction.user.display_name)
-        view = ImageResultView(self, attempt)
+        view = ImageResultView(self, attempt, result.png_bytes)
 
         if attempt.thread_id and interaction.channel.id != attempt.thread_id:
             # 결과 스레드가 이미 있는데 지금 버튼은 스레드 시작 메시지(원본 채널) 쪽에서 눌린 경우 —

@@ -7,6 +7,8 @@ services:
       - .env
     volumes:
       - ./playlists.db:/app/playlists.db
+      # 배경 제거(rembg) 모델 캐시. 없으면 재빌드/재시작마다 모델(수백MB)을 다시 받는다.
+      - ./rembg_models:/root/.u2net
 
   utahime-web:
     build: .

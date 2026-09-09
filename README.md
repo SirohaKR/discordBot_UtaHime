@@ -37,7 +37,7 @@
   - `/캐릭터목록`, `/캐릭터삭제`로 관리.
 - `/프롬프트채널설정` — 현재 채널을 **프롬프트 추천 채널**로 지정. 지정 후 그 채널에 명령어 없이 그냥 문장(또는 이미지 첨부)만 적으면 AI가 Danbooru 태그를 추천해서 답장함. 이미지만 올려도("이런 느낌으로 그리고 싶어") 그 이미지를 보고 태그를 뽑아줌. 유저별 5초 쿨다운.
 - `/프롬프트채널설정해제` — 프롬프트 추천 채널 지정 해제.
-- 그림 생성 결과에는 **📋 프롬프트 복사 / ⚙️ 설정 복사 / 🔁 다시 생성** 버튼이 붙어서, 설정을 다시 옮겨 적을 필요 없이 그 자리에서 바로 재생성 가능.
+- 그림 생성 결과에는 **📋 프롬프트 복사 / ⚙️ 설정 복사 / 🔁 다시 생성 / 🖼️ 배경 투명화** 버튼이 붙어서, 설정을 다시 옮겨 적을 필요 없이 그 자리에서 바로 재생성하거나 스탠딩 그림용 투명 배경 PNG를 뽑을 수 있음. 배경 제거는 `rembg`(오픈소스, 애니메 전용 `isnet-anime` 모델) 기반으로 GPU 없이 CPU만으로 동작.
 - 최초 결과 메시지에서 자동으로 스레드가 생성되어, 이후 "다시 생성" 결과는 그 스레드 안에 쌓임 (메인 채널이 결과로 도배되지 않음).
 
 ## 기능 — 자유 채팅 (Claude)
@@ -138,6 +138,7 @@ core/chat_channel_db.py        # 자유 채팅 채널 설정 저장소 (SQLite, 
 core/vibe_cache_db.py          # Vibe Transfer 인코딩 결과 캐시 (SQLite, playlists.db 공유)
 core/default_style_db.py       # 서버별 기본 스타일 참조 이미지 저장소 (SQLite, playlists.db 공유)
 core/character_preset_db.py    # 유저별 캐릭터 고정 특징 프리셋 저장소 (SQLite, playlists.db 공유)
+core/bg_remove.py              # 배경 제거(rembg, isnet-anime) - 스탠딩 그림용 투명 배경 PNG
 core/guild_settings_db.py     # 서버별 설정 저장소 (SQLite, 웹페이지와 공유)
 core/song_queue.py            # 스마트 셔플 큐
 core/playlist_db.py           # 플레이리스트 북마크 저장소 (SQLite, playlists.db)
