@@ -20,7 +20,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from core import default_style_db, image_settings_db, nai_client, prompt_writer, vibe_cache_db
+from core import character_preset_db, default_style_db, image_settings_db, nai_client, prompt_writer, vibe_cache_db
 from core.error_notify import notify_error
 from core.nai_client import NaiAuthError, NaiError, NaiRateLimitError
 from core.prompt_writer import PromptRefused, PromptWriterError
@@ -296,6 +296,7 @@ class ImageGen(commands.Cog):
         스타일참조="화풍/분위기를 참고할 이미지 (Vibe Transfer, 선택). 같은 이미지+정보추출량 조합 재사용 시 캐시돼서 Anlas 안 나감",
         스타일강도="레퍼런스가 결과에 얼마나 세게 섞일지 (0.0~1.0, 기본 0.6). 높을수록 화풍이 강해지지만 프롬프트 내용과 충돌 가능",
         정보추출량="레퍼런스에서 얼마나 구체적으로 뽑아낼지 (0.0~1.0, 기본 1.0). 낮으면 색감/분위기만, 높으면 선화·구도까지 상세히 반영",
+        캐릭터="/캐릭터저장으로 등록해둔 내 캐릭터 프리셋 이름 (선택). 지정하면 그 캐릭터의 고정 특징은 유지하고 이번 프롬프트는 장면/포즈 묘사로 반영",
     )
     @app_commands.choices(비율=SIZE_CHOICES, 모델=MODEL_CHOICES, 등급=RATING_CHOICES)
     @app_commands.checks.cooldown(1, 15.0, key=lambda i: i.user.id)
@@ -313,6 +314,7 @@ class ImageGen(commands.Cog):
         스타일참조: discord.Attachment = None,
         스타일강도: app_commands.Range[float, 0.0, 1.0] = 0.6,
         정보추출량: app_commands.Range[float, 0.0, 1.0] = 1.0,
+        캐릭터: str = None,
     ):
         if not NAI_TOKEN:
             await interaction.response.send_message(
@@ -326,18 +328,36 @@ class ImageGen(commands.Cog):
         model = 모델.value if 모델 else "nai-diffusion-4-5-full"
         rating = 등급.value if 등급 else "sensitive"
 
+        character_desc = None
+        if 캐릭터:
+            character_desc = await character_preset_db.async_get_preset(self.bot.loop, interaction.user.id, 캐릭터)
+            if character_desc is None:
+                await interaction.response.send_message(
+                    f"❌ 저장된 캐릭터 프리셋 '{캐릭터}'를 찾을 수 없어요. `/캐릭터목록`으로 확인해주세요.",
+                    ephemeral=True,
+                )
+                return
+
         await interaction.response.defer(thinking=True)
 
         final_prompt = 프롬프트
         prompt_note = None
         if not 태그모드:
+            description_for_ai = 프롬프트
+            if character_desc:
+                description_for_ai = (
+                    f"[고정 캐릭터 특징 — 반드시 그대로 유지하고, 없는 속성으로 바꾸지 마세요]\n{character_desc}\n\n"
+                    f"[이번 장면 요청 — 위 캐릭터로 아래 내용을 그려주세요]\n{프롬프트}"
+                )
             try:
-                final_prompt = await prompt_writer.write_tags(프롬프트)
+                final_prompt = await prompt_writer.write_tags(description_for_ai)
             except PromptRefused as e:
                 await interaction.followup.send(f"🚫 요청이 거부되었습니다: {e}")
                 return
             except PromptWriterError as e:
                 prompt_note = f"⚠️ 프롬프트 자동 변환 실패({e}) — 입력값을 태그로 그대로 사용합니다."
+        elif character_desc:
+            final_prompt = f"{character_desc}, {프롬프트}"
 
         vibe_encoded = None
         vibe_note = None
@@ -390,6 +410,8 @@ class ImageGen(commands.Cog):
 
         if prompt_note:
             await interaction.followup.send(prompt_note)
+        if character_desc:
+            await interaction.followup.send(f"🧑‍🎨 캐릭터 프리셋 `{캐릭터}` 특징을 유지해서 만들게요.", ephemeral=True)
 
         attempt = GenAttempt(
             requester_id=interaction.user.id,
@@ -497,6 +519,63 @@ class ImageGen(commands.Cog):
     async def clear_default_style(self, interaction: discord.Interaction):
         await default_style_db.async_clear_default_style(self.bot.loop, interaction.guild.id)
         await interaction.response.send_message("✅ 서버 기본 스타일 참조를 해제했습니다.")
+
+    @generate.autocomplete("캐릭터")
+    async def character_autocomplete(self, interaction: discord.Interaction, current: str):
+        presets = await character_preset_db.async_list_presets(self.bot.loop, interaction.user.id)
+        return [
+            app_commands.Choice(name=name, value=name)
+            for name, _desc in presets
+            if current.lower() in name.lower()
+        ][:25]
+
+    @app_commands.command(
+        name="캐릭터저장",
+        description="내 캐릭터의 고정 특징(머리색/눈색/헤어스타일 등)을 이름 붙여 저장합니다. /그림생성에서 재사용 가능.",
+    )
+    @app_commands.describe(
+        이름="캐릭터 프리셋 이름 (예: 소라). 같은 이름으로 다시 저장하면 덮어씀",
+        특징="캐릭터의 고정 특징 묘사. 한국어 문장이든 영문 태그든 상관없음 (예: 은발 트윈테일, 초록 눈, 고양이 귀). "
+        "포즈/배경/의상처럼 매번 바뀔 내용 말고 캐릭터 자체를 정의하는 특징 위주로 적으세요",
+    )
+    async def save_character(self, interaction: discord.Interaction, 이름: str, 특징: str):
+        await character_preset_db.async_save_preset(self.bot.loop, interaction.user.id, 이름, 특징)
+        await interaction.response.send_message(
+            f"✅ 캐릭터 프리셋 `{이름}`을(를) 저장했어요. 이제 `/그림생성`에서 캐릭터:{이름} 을 지정하면 "
+            "이 특징은 유지하면서 그때그때 다른 장면/포즈로 그릴 수 있어요.",
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="캐릭터목록", description="내가 저장한 캐릭터 프리셋 목록을 확인합니다.")
+    async def list_characters(self, interaction: discord.Interaction):
+        presets = await character_preset_db.async_list_presets(self.bot.loop, interaction.user.id)
+        if not presets:
+            await interaction.response.send_message(
+                "저장된 캐릭터 프리셋이 없어요. `/캐릭터저장`으로 먼저 등록해주세요.", ephemeral=True
+            )
+            return
+        embed = discord.Embed(title="🧑‍🎨 내 캐릭터 프리셋", color=discord.Color.blurple())
+        for name, desc in presets:
+            embed.add_field(name=name, value=desc[:200], inline=False)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @app_commands.command(name="캐릭터삭제", description="저장된 캐릭터 프리셋을 삭제합니다.")
+    @app_commands.describe(이름="삭제할 캐릭터 프리셋 이름")
+    async def delete_character(self, interaction: discord.Interaction, 이름: str):
+        deleted = await character_preset_db.async_delete_preset(self.bot.loop, interaction.user.id, 이름)
+        if deleted:
+            await interaction.response.send_message(f"✅ 캐릭터 프리셋 `{이름}`을(를) 삭제했어요.", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"❌ '{이름}' 이라는 캐릭터 프리셋을 찾을 수 없어요.", ephemeral=True)
+
+    @delete_character.autocomplete("이름")
+    async def delete_character_autocomplete(self, interaction: discord.Interaction, current: str):
+        presets = await character_preset_db.async_list_presets(self.bot.loop, interaction.user.id)
+        return [
+            app_commands.Choice(name=name, value=name)
+            for name, _desc in presets
+            if current.lower() in name.lower()
+        ][:25]
 
 
 async def setup(bot: commands.Bot):
