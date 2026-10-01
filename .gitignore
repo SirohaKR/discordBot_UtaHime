@@ -14,3 +14,7 @@ legacy_UtaHime.py
 .claude/settings.local.json
 data/*
 !data/.gitkeep
+
+# 웹 관리 페이지 "내장 이미지"용 그림은 NAS의 img/ 폴더에 직접 넣는다 (저장소에는 안 올림)
+img/*
+!img/.gitkeep

@@ -102,7 +102,7 @@ class ChatChannel(commands.Cog):
     @app_commands.command(name="가이드", description="이 봇이 할 수 있는 걸 전부 자세히 안내합니다.")
     async def guide(self, interaction: discord.Interaction):
         embed = discord.Embed(
-            title="📖 시로챤넬 서포트 란다 — 기능 가이드",
+            title="📖 시로챤넬 서포트 랑다 — 기능 가이드",
             description="이 서버 봇이 할 수 있는 걸 전부 정리해드릴게요, 회원님.",
             color=discord.Color.blurple(),
         )
