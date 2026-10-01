@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """프롬프트 추천 전용 채널.
 
-지정한 채널에 문장(+선택적으로 이미지 첨부)을 그냥 입력하면, Claude가 NovelAI
+지정한 채널에 문장(+선택적으로 이미지 첨부)을 그냥 입력하면, Claude가 그림 생성용
 Danbooru 태그로 변환해서 답장해준다. 이미지만 첨부하고 텍스트가 없으면 이미지를
 보고 태그를 뽑아준다 (예: "이런 느낌으로 그리고 싶은데 태그 뭐 써야 돼?").
 """
@@ -71,7 +71,7 @@ class PromptSuggest(commands.Cog):
             description=f"```{tags[:1900]}```",
             color=discord.Color.blurple(),
         )
-        embed.set_footer(text="이 태그를 /그림생성에 태그모드:True로 붙여넣으면 바로 생성할 수 있어요.")
+        embed.set_footer(text="NovelAI·PixAI 같은 그림 생성 사이트에 그대로 붙여넣어 쓰면 돼요.")
         await message.reply(embed=embed, mention_author=False)
 
     @app_commands.command(name="프롬프트채널설정", description="현재 채널을 프롬프트 추천 전용 채널로 지정합니다.")

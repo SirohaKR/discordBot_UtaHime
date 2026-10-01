@@ -77,13 +77,13 @@
   <header>
     <h1>🎨 프롬프트 가이드 &amp; 빌더</h1>
     <p>태그를 눌러서 조합하면 아래에 프롬프트가 바로 만들어집니다. 완성되면 복사해서
-    <code>/그림생성</code>의 <b>태그모드</b>를 켜고 붙여넣으세요. · <a href="/docs">📖 봇 사용법 문서로</a></p>
+    NovelAI·PixAI 같은 그림 생성 사이트에 붙여넣으세요. · <a href="/docs">📖 봇 사용법 문서로</a></p>
   </header>
 
   <div class="note">
-    <b>masterpiece</b>, <b>very aesthetic</b> 같은 품질 태그와 손가락/손·옷 아티팩트 방지용 네거티브는
-    <code>/그림생성</code>이 매 요청마다 자동으로 붙여줍니다. 아래에서 만드는 프롬프트에는 굳이 안 넣어도 돼요
-    (하단 "자동으로 붙는 기본값 보기"에서 확인 가능).
+    <b>masterpiece</b>, <b>best quality</b> 같은 품질 태그와 손가락/손 이상 방지용 네거티브는
+    대부분의 사이트에서 같이 넣어주는 게 좋아요. 하단 "추천 기본값 보기"에서 복사해서 함께 쓰세요
+    (사이트 자체에 품질 프리셋이 있으면 그걸 써도 됩니다).
   </div>
 
   <section class="card">
@@ -110,7 +110,7 @@
 
   <section class="card">
     <h2>🔴 네거티브 프롬프트 (추가 옵션)</h2>
-    <p class="desc">기본 네거티브는 이미 자동으로 붙습니다. 이 그림에서만 특별히 더 빼고 싶은 게 있을 때만 골라주세요.</p>
+    <p class="desc">기본 네거티브(하단 "추천 기본값 보기")에 더해, 이 그림에서만 특별히 빼고 싶은 게 있을 때 골라주세요.</p>
     <div id="negative-categories"></div>
 
     <div class="custom-row">
@@ -126,25 +126,20 @@
           <button class="copy-btn" id="negative-copy" type="button">복사</button>
         </div>
       </div>
-      <textarea class="output-text" id="negative-output" readonly placeholder="선택하면 여기에 채워집니다 (비워도 정상 — 기본값이 이미 적용됨)"></textarea>
+      <textarea class="output-text" id="negative-output" readonly placeholder="선택하면 여기에 채워집니다 (비워도 됩니다)"></textarea>
     </div>
 
-    <span class="preset-toggle" id="preset-toggle">▸ 자동으로 붙는 기본값 보기</span>
+    <span class="preset-toggle" id="preset-toggle">▸ 추천 기본값 보기</span>
     <div class="preset-box" id="preset-box">
-      <b>품질(긍정, 자동 추가):</b> location, very aesthetic, masterpiece, no text
+      <b>품질(긍정, 맨 앞에 추가):</b> masterpiece, best quality
       <br><br>
-      <b>네거티브(자동 추가, 풀 모델 기준):</b><br>
-      lowres, artistic error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts,
-      very displeasing, chromatic aberration, dithering, halftone, screentone, multiple views, logo,
-      too many watermarks, negative space, blank page, bad hands, mutated hands, poorly drawn hands,
-      malformed hands, disfigured hands, extra digits, fewer digits, extra fingers, missing fingers,
-      fused fingers, long fingers, liquid fingers, bad anatomy, bad proportions, extra limbs, missing limbs,
-      disconnected limbs, bad clothes, wardrobe malfunction, mismatched clothes, floating clothes,
-      clothes through body
+      <b>네거티브(추천):</b><br>
+      lowres, worst quality, low quality, jpeg artifacts, bad anatomy, bad hands, extra fingers,
+      missing fingers, extra digits, fewer digits, watermark, signature, text, logo
     </div>
   </section>
 
-  <footer>공주님 봇 · 태그는 NovelAI(Danbooru 체계) 기준 영어 태그입니다.</footer>
+  <footer>공주님 봇 · 태그는 Danbooru 체계 기준 영어 태그입니다 (NovelAI·PixAI 등에서 그대로 사용 가능).</footer>
 </div>
 
 <script>
@@ -341,7 +336,7 @@
   document.getElementById("preset-toggle").addEventListener("click", (e) => {
     const box = document.getElementById("preset-box");
     box.classList.toggle("open");
-    e.currentTarget.textContent = (box.classList.contains("open") ? "▾ " : "▸ ") + "자동으로 붙는 기본값 보기";
+    e.currentTarget.textContent = (box.classList.contains("open") ? "▾ " : "▸ ") + "추천 기본값 보기";
   });
 </script>
 </body>

@@ -28,9 +28,10 @@ logging.getLogger("discord.player").setLevel(logging.INFO)
 # 새 기능(cog)을 추가할 때 여기에 모듈 경로만 추가하면 됨.
 INITIAL_EXTENSIONS = [
     "cogs.music",
-    "cogs.image",
     "cogs.prompt_suggest",
-    "cogs.chat",
+    "cogs.chat",  # 자유 채팅 (일상 대화 + 프롬프트 추천)
+    "cogs.tts",  # 시로냥에서 가져온 TTS (텍스트채널 글을 음성채널에서 읽어줌)
+    "cogs.channels",  # 시로냥에서 가져온 음성 허브 (자동 음성방 생성/삭제)
 ]
 
 # yt-dlp는 유튜브 정책 변화에 맞춰 자주 패치되므로, 주기적으로 자동 업데이트한다.
@@ -38,6 +39,7 @@ INITIAL_EXTENSIONS = [
 # 프로세스 매니저)가 새 site-packages 상태 그대로 재기동하도록 한다.
 AUTO_UPDATE_INTERVAL_SECONDS = 7 * 24 * 3600  # 1주일
 
+# voice_states(기본 포함): 음악 + TTS + 음성 허브가 음성채널 입퇴장을 감지하는 데 필요.
 intents = discord.Intents.default()
 intents.message_content = True
 
@@ -165,14 +167,16 @@ async def on_ready():
     except Exception as e:
         print(f"⚠️ [WARN] 슬래시 명령어 글로벌 동기화 실패: {e}")
 
-    if music_cog and music_cog.guild_id:
+    # 음악 cog의 "홈 서버"와 .env의 MY_GUILD_ID 서버에는 디스코드 캐시 지연 없이 바로 명령어가 뜨게 한다.
+    home_guild_ids = {gid for gid in (music_cog.guild_id if music_cog else None, os.getenv("MY_GUILD_ID")) if gid}
+    for gid in {int(g) for g in home_guild_ids}:
         try:
-            guild_obj = discord.Object(id=music_cog.guild_id)
+            guild_obj = discord.Object(id=gid)
             bot.tree.copy_global_to(guild=guild_obj)
             synced_guild = await bot.tree.sync(guild=guild_obj)
-            print(f"🌳 [LOG] 슬래시 명령어 길드 동기화 완료 (guild={music_cog.guild_id}, {len(synced_guild)}개)")
+            print(f"🌳 [LOG] 슬래시 명령어 길드 동기화 완료 (guild={gid}, {len(synced_guild)}개)")
         except Exception as e:
-            print(f"⚠️ [WARN] 슬래시 명령어 길드 동기화 실패: {e}")
+            print(f"⚠️ [WARN] 슬래시 명령어 길드 동기화 실패 (guild={gid}): {e}")
 
     print("=" * 40 + "\n")
 

@@ -3,12 +3,15 @@ services:
     build: .
     container_name: utahime-bot
     restart: unless-stopped
+    # 음성(UDP)이 브릿지 네트워크 NAT를 거치며 유실되는 경우가 있어서(시로냥 TTS에서 겪음)
+    # 봇 컨테이너만 호스트 네트워크를 쓴다. 포트를 여는 서비스가 아니라 충돌 걱정 없음.
+    network_mode: "host"
     env_file:
       - .env
     volumes:
       - ./playlists.db:/app/playlists.db
-      # 배경 제거(rembg) 모델 캐시. 없으면 재빌드/재시작마다 모델(수백MB)을 다시 받는다.
-      - ./rembg_models:/root/.u2net
+      # TTS/음성 허브 설정 (data/settings.json)
+      - ./data:/app/data
 
   utahime-web:
     build: .

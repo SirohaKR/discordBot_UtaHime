@@ -6,5 +6,6 @@ flask>=3.0.0
 aiohttp>=3.9.0
 anthropic>=0.40.0
 
-# 배경 투명화(스탠딩 그림) 기능용. CPU 전용, GPU 불필요.
-rembg>=2.0.50
+# TTS (시로냥에서 가져옴): 무료 edge-tts + 유료 AWS Polly. 타입캐스트는 aiohttp로 직접 호출.
+edge-tts>=6.1.9
+boto3>=1.34.0
