@@ -20,6 +20,12 @@
 """
 from __future__ import annotations
 
+import re
+
+# 같은 글자가 이만큼보다 길게 연달아 나오면 이 개수까지만 남긴다 (ㅋㅋㅋㅋㅋㅋ -> ㅋㅋㅋ).
+MAX_REPEAT = 3
+_REPEAT_RE = re.compile(r"(.)\1{%d,}" % MAX_REPEAT, re.DOTALL)
+
 # 뜻이 있는 초성 줄임말. 긴 것부터 매칭해야 "ㄴㅇㄱ"이 "ㄴ"+"ㅇㄱ"처럼 잘못
 # 쪼개지지 않는다 (normalize_for_tts가 길이 4→1 순서로 시도함).
 _ABBREVIATIONS: dict[str, str] = {
@@ -73,7 +79,12 @@ def _compose_single_jamo(ch: str) -> str | None:
 
 
 def normalize_for_tts(text: str) -> str:
-    """초성체/자모만 있는 글자를 TTS가 읽기 좋은 형태로 바꾼 새 문자열을 돌려준다."""
+    """초성체/자모만 있는 글자를 TTS가 읽기 좋은 형태로 바꾼 새 문자열을 돌려준다.
+
+    먼저 같은 글자가 4번 이상 반복되면 3번까지만 남긴다 — "ㅋㅋㅋㅋㅋㅋㅋ", "ㅎㅎㅎㅎㅎ", "!!!!!!"
+    같은 걸 끝까지 다 읽으면 음성채널이 한참 독점되기 때문.
+    """
+    text = _REPEAT_RE.sub(lambda m: m.group(1) * MAX_REPEAT, text)
     result: list[str] = []
     i = 0
     n = len(text)

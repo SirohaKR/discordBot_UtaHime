@@ -1,36 +1,18 @@
-<!doctype html>
-<html lang="ko">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>공주님 봇 설정</title>
-<style>
-  body { font-family: -apple-system, "Segoe UI", sans-serif; background:#0f1115; color:#e6e6e6;
-         display:flex; justify-content:center; padding:40px 16px; margin:0; }
-  .card { background:#1a1d24; border-radius:12px; padding:32px; width:100%; max-width:420px;
-          box-shadow:0 4px 24px rgba(0,0,0,.3); }
-  h1 { font-size:1.3rem; margin-top:0; }
-  a { color:#7dd3fc; text-decoration:none; }
-  a:hover { text-decoration:underline; }
-  ul { padding-left:1.2rem; }
-  code { background:#0f1115; padding:2px 6px; border-radius:4px; }
-</style>
-</head>
-<body>
+{% extends "base.html" %}
+{% block title %}서버 선택 — 랑다AI 설정{% endblock %}
+{% block content %}
 <div class="card">
-  <h1>🎶 공주님 봇 설정</h1>
-  <p><a href="{{ url_for('docs') }}">📖 봇 사용법 문서 보기 →</a></p>
-  <p><a href="{{ url_for('prompt_guide') }}">🎨 프롬프트 가이드 &amp; 빌더 →</a></p>
-  {% if guild_ids %}
-    <p>등록된 서버:</p>
-    <ul>
-      {% for gid in guild_ids %}
-        <li><a href="{{ url_for('guild_page', guild_id=gid) }}">{{ gid }}</a></li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p>아직 등록된 서버 설정이 없습니다. 디스코드에서 <code>!join</code> 또는 <code>!설정</code>을 먼저 실행해주세요.</p>
-  {% endif %}
+  <h2>어느 서버를 설정할까요?</h2>
+  <p class="desc">랑다 봇이 들어가 있는 서버 목록입니다.</p>
+  <table>
+    {% for g in guilds %}
+    <tr>
+      <td>{{ g.name }}</td>
+      <td><a href="{{ url_for('guild_page', guild_id=g.id) }}">설정 열기 →</a></td>
+    </tr>
+    {% else %}
+    <tr><td>봇이 아직 어느 서버에도 들어가 있지 않습니다. 먼저 서버에 초대해주세요.</td></tr>
+    {% endfor %}
+  </table>
 </div>
-</body>
-</html>
+{% endblock %}

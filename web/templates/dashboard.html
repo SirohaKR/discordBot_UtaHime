@@ -1,0 +1,105 @@
+{% extends "guild_shell.html" %}
+{% block section %}
+<div class="grid">
+  <a class="card status-card" href="{{ url_for('guild_entrance', guild_id=guild_id) }}">
+    <div class="card-title"><div class="card-icon">🚪</div><h2>입장 안내</h2></div>
+    {% if entrance.channel_id %}
+    <p class="status-line ok">✅ #{{ channels_by_id.get(entrance.channel_id, '알 수 없는 채널') }} 에 게시됨</p>
+    {% else %}
+    <p class="status-line warn">⚠️ 아직 설정되지 않았어요</p>
+    {% endif %}
+    <span class="tag">설정하기 →</span>
+  </a>
+
+  <a class="card status-card" href="{{ url_for('guild_verification', guild_id=guild_id) }}">
+    <div class="card-title"><div class="card-icon">🔑</div><h2>캐릭터 인증</h2></div>
+    {% if verification.channel_id and verification.role_id %}
+    <p class="status-line ok">✅ #{{ channels_by_id.get(verification.channel_id, '알 수 없는 채널') }} · {{ roles_by_id.get(verification.role_id, '알 수 없는 역할') }}</p>
+    {% else %}
+    <p class="status-line warn">⚠️ 아직 설정되지 않았어요</p>
+    {% endif %}
+    <span class="tag">설정하기 →</span>
+  </a>
+
+  <a class="card status-card" href="{{ url_for('guild_jobs', guild_id=guild_id) }}">
+    <div class="card-title"><div class="card-icon">🎭</div><h2>역할 선택</h2></div>
+    {% if settings.get('job_roles', {}).get('channel_id') %}
+    <p class="status-line ok">✅ #{{ channels_by_id.get(settings.job_roles.channel_id, '알 수 없는 채널') }} 에 게시됨 ({{ job_list|length }}개 역할)</p>
+    {% else %}
+    <p class="status-line warn">⚠️ 아직 게시하지 않았어요 ({{ job_list|length }}개 등록됨)</p>
+    {% endif %}
+    <span class="tag">설정하기 →</span>
+  </a>
+
+  <a class="card status-card" href="{{ url_for('guild_announcements', guild_id=guild_id) }}">
+    <div class="card-title"><div class="card-icon">📢</div><h2>공지사항</h2></div>
+    {% if announcement.channel_id %}
+    <p class="status-line ok">✅ 마지막으로 #{{ channels_by_id.get(announcement.channel_id, '알 수 없는 채널') }} 에 게시함</p>
+    {% else %}
+    <p class="status-line warn">아직 게시한 적 없어요</p>
+    {% endif %}
+    <span class="tag">공지 쓰기 →</span>
+  </a>
+
+  <a class="card status-card" href="{{ url_for('guild_rules', guild_id=guild_id) }}">
+    <div class="card-title"><div class="card-icon">📜</div><h2>길드 규칙</h2></div>
+    {% if rules.channel_id %}
+    <p class="status-line ok">✅ #{{ channels_by_id.get(rules.channel_id, '알 수 없는 채널') }} 에 게시됨</p>
+    {% else %}
+    <p class="status-line warn">⚠️ 아직 게시하지 않았어요</p>
+    {% endif %}
+    <span class="tag">규칙 쓰기 →</span>
+  </a>
+
+  <a class="card status-card" href="{{ url_for('guild_hub', guild_id=guild_id) }}">
+    <div class="card-title"><div class="card-icon">🔊</div><h2>음성 채널 자동 생성</h2></div>
+    {% if settings.get('voice_hubs') %}
+    <p class="status-line ok">✅ 허브 {{ settings.voice_hubs|length }}개 운영 중</p>
+    {% else %}
+    <p class="status-line warn">⚠️ 아직 설정되지 않았어요</p>
+    {% endif %}
+    <span class="tag">설정하기 →</span>
+  </a>
+
+  <a class="card status-card" href="{{ url_for('guild_tts', guild_id=guild_id) }}">
+    <div class="card-title"><div class="card-icon">🗣️</div><h2>TTS</h2></div>
+    {% if settings.get('tts', {}).get('channel_id') %}
+    <p class="status-line ok">✅ #{{ channels_by_id.get(settings.tts.channel_id, '알 수 없는 채널') }} 읽는 중</p>
+    {% else %}
+    <p class="status-line warn">⚠️ 아직 설정되지 않았어요</p>
+    {% endif %}
+    <span class="tag">설정하기 →</span>
+  </a>
+
+  <a class="card status-card" href="{{ url_for('guild_ranks', guild_id=guild_id) }}">
+    <div class="card-title"><div class="card-icon">👑</div><h2>길드 직급</h2></div>
+    <p class="status-line {{ 'ok' if rank_role_ids else 'warn' }}">
+      {{ rank_role_ids|length }} / {{ guild_ranks|length }} 개 연결됨
+    </p>
+    <span class="tag">설정하기 →</span>
+  </a>
+
+  <a class="card status-card" href="{{ url_for('guild_members', guild_id=guild_id) }}">
+    <div class="card-title"><div class="card-icon">🧑‍🤝‍🧑</div><h2>역할 부여</h2></div>
+    <p class="status-line">멤버에게 직급 역할을 직접 부여할 수 있어요</p>
+    <span class="tag">멤버 보기 →</span>
+  </a>
+</div>
+
+<div class="card" style="margin-top:20px;">
+  <div class="card-title"><div class="card-icon">🔔</div><h2>업데이트 로그</h2></div>
+  <p class="desc">
+    랑다가 업데이트될 때마다 바뀐 내용을 이 채널에 자동으로 남겨요 (봇이 켜질 때 확인함).
+  </p>
+  <form method="post" action="{{ url_for('set_bot_log_channel', guild_id=guild_id) }}">
+    <label>업데이트 로그를 남길 채널</label>
+    <select name="channel_id">
+      <option value="">(사용 안 함)</option>
+      {% for c in text_channels %}
+      <option value="{{ c.id }}" {% if settings.bot_log_channel_id == c.id|int %}selected{% endif %}>#{{ c.name }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">💾 저장</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,619 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title }} — 랑다AI{% endblock %}
+
+{% block extra_style %}
+.shell { display: flex; min-height: 100vh; align-items: flex-start; }
+.sidebar {
+  width: 230px; flex-shrink: 0; min-height: 100vh;
+  background: var(--panel); border-right: 1px solid var(--card-border);
+  padding: 22px 14px; position: sticky; top: 0;
+}
+.sidebar .brand { padding: 4px 10px 20px; font-size: 16px; }
+.sidebar nav a {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 8px; margin-bottom: 4px;
+  color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 600;
+  border-left: 3px solid transparent;
+}
+.sidebar nav a:hover { background: var(--card); color: var(--text); }
+.sidebar nav a.active {
+  background: var(--card); color: var(--text); border-left-color: var(--accent);
+}
+.sidebar form { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--card-border); }
+.sidebar form button { width: 100%; margin-top: 0; background: var(--card); color: var(--muted); }
+.sidebar form button:hover { background: var(--danger); color: white; }
+.content-wrap { flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: 28px; padding: 32px 32px 64px; max-width: 1100px; }
+.content-main { flex: 1; min-width: 0; max-width: 700px; }
+.content-main > .card { margin-bottom: 20px; }
+.page-title { margin: 0 0 6px; font-size: 22px; }
+.page-desc { margin: 0 0 22px; font-size: 13px; color: var(--muted); }
+
+/* 오른쪽 실시간 미리보기 패널 (제목/내용/이미지 입력폼이 있는 페이지에서만 씀) */
+.content-preview { width: 320px; flex-shrink: 0; position: sticky; top: 24px; }
+.content-preview-label { font-size: 12px; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
+.discord-mock {
+  background: #313338; border-radius: 10px; padding: 14px; display: flex; gap: 10px;
+  font-family: "Malgun Gothic", sans-serif; word-break: break-word;
+}
+.discord-mock-avatar {
+  width: 38px; height: 38px; border-radius: 50%; background: var(--accent);
+  display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
+}
+.discord-mock-main { min-width: 0; flex: 1; }
+.discord-mock-header { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; flex-wrap: wrap; }
+.discord-mock-name { color: #fff; font-weight: 600; font-size: 14px; }
+.discord-mock-bot-tag {
+  background: var(--accent); color: #fff; font-size: 10px; font-weight: 700;
+  padding: 1px 4px; border-radius: 3px; line-height: 1.4;
+}
+.discord-mock-time { color: #949ba4; font-size: 11px; }
+.discord-mock-embed {
+  border-left: 4px solid var(--accent); background: #2b2d31; border-radius: 4px;
+  padding: 10px 12px; margin-top: 2px; max-width: 100%;
+}
+.discord-mock-embed-title { color: #fff; font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+.discord-mock-embed-desc { color: #dbdee1; font-size: 13px; white-space: pre-wrap; line-height: 1.5; }
+.discord-mock-embed-image { max-width: 100%; max-height: 220px; border-radius: 4px; margin-top: 8px; display: block; object-fit: cover; }
+.discord-mock-button {
+  display: inline-block; margin-top: 10px; background: #4e5058; color: #fff;
+  font-size: 13px; font-weight: 500; padding: 6px 14px; border-radius: 4px;
+}
+@media (max-width: 1080px) {
+  .content-wrap { flex-direction: column; }
+  .content-preview { width: 100%; position: static; }
+}
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.status-card {
+  display: block; text-decoration: none; color: inherit;
+  transition: border-color .15s ease;
+}
+.status-card:hover { border-color: var(--accent); }
+.status-line { font-size: 13px; margin: 8px 0 12px; }
+.status-line.ok { color: #57F287; }
+.status-line.warn { color: #E2A93C; }
+.status-card .tag { color: var(--accent); background: transparent; padding: 0; }
+@media (max-width: 900px) {
+  .grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+  .shell { flex-direction: column; }
+  .sidebar { width: 100%; min-height: auto; position: static; }
+  .content { padding: 20px; }
+}
+
+/* 이미지 선택 위젯 (URL / 파일 업로드 / 내장 이미지 + 자르기) */
+.image-picker { margin: 12px 0 4px; }
+.ip-tabs { display: flex; gap: 6px; margin-bottom: 8px; }
+.ip-tab {
+  margin-top: 0; padding: 6px 12px; font-size: 12px; font-weight: 600;
+  background: var(--panel); color: var(--muted); border: 1px solid var(--card-border);
+  border-radius: 999px; cursor: pointer;
+}
+.ip-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+.ip-panel { margin-bottom: 10px; }
+.ip-gallery {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 8px; max-height: 260px; overflow-y: auto; padding: 8px;
+  border: 1px solid var(--card-border); border-radius: 8px; background: var(--panel);
+}
+.ip-gallery-thumb {
+  width: 100%; height: 90px; object-fit: cover; border-radius: 6px; cursor: pointer;
+  border: 2px solid transparent; display: block;
+}
+.ip-gallery-thumb:hover { border-color: var(--accent); }
+.ip-gallery-thumb.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.ip-crop-wrap {
+  margin: 10px 0; padding: 12px; border: 1px solid var(--card-border);
+  border-radius: 8px; background: var(--panel);
+}
+.ip-crop-stage {
+  position: relative; display: inline-block; max-width: 100%;
+  margin-top: 8px; user-select: none; cursor: crosshair; touch-action: none;
+}
+.ip-crop-image { max-width: 100%; max-height: 340px; display: block; border-radius: 6px; }
+.ip-crop-box {
+  position: absolute; border: 2px dashed var(--accent);
+  background: rgba(91, 140, 255, 0.18); cursor: move; touch-action: none;
+}
+/* 모서리를 드래그해서 크기를 조절하는 핸들. 눈에 보이는 점은 작지만, 손가락으로도
+   쉽게 잡을 수 있도록 ::before로 보이지 않는 넓은 터치 영역을 덧대둔다. */
+.ip-crop-handle {
+  position: absolute; width: 14px; height: 14px; margin: -7px;
+  background: var(--accent); border: 2px solid #fff; border-radius: 50%;
+  touch-action: none;
+}
+.ip-crop-handle::before {
+  content: ""; position: absolute; top: 50%; left: 50%;
+  width: 40px; height: 40px; transform: translate(-50%, -50%);
+}
+.ip-crop-handle[data-handle="nw"] { left: 0; top: 0; cursor: nwse-resize; }
+.ip-crop-handle[data-handle="ne"] { left: 100%; top: 0; cursor: nesw-resize; }
+.ip-crop-handle[data-handle="sw"] { left: 0; top: 100%; cursor: nesw-resize; }
+.ip-crop-handle[data-handle="se"] { left: 100%; top: 100%; cursor: nwse-resize; }
+.ip-crop-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.ip-crop-actions button { margin-top: 0; padding: 8px 14px; font-size: 12px; }
+.ip-crop-actions .ip-crop-reset { background: var(--card); color: var(--muted); }
+.ip-crop-status { font-size: 11px; }
+
+/* 글 꾸미기 툴바 (_markdown_toolbar.html) */
+.md-toolbar { display: flex; gap: 3px; margin: 8px 0 -1px; flex-wrap: wrap; }
+.md-toolbar button {
+  margin-top: 0; padding: 5px 10px; font-size: 12px; font-weight: 700;
+  background: var(--panel); color: var(--text); border: 1px solid var(--card-border);
+  border-bottom: none; border-radius: 6px 6px 0 0; cursor: pointer; min-width: 30px;
+}
+.md-toolbar button:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+.md-toolbar-sep { width: 1px; background: var(--card-border); margin: 4px 2px; }
+
+/* 미리보기 안에서 마크다운을 실제 디스코드처럼 렌더링할 때 쓰는 스타일 */
+.discord-mock-embed-desc .md-h1 { font-size: 18px; font-weight: 800; margin: 6px 0 3px; color: #fff; }
+.discord-mock-embed-desc .md-h2 { font-size: 16px; font-weight: 700; margin: 5px 0 3px; color: #fff; }
+.discord-mock-embed-desc .md-h3 { font-size: 14px; font-weight: 700; margin: 4px 0 2px; color: #fff; }
+.discord-mock-embed-desc .md-quote {
+  border-left: 3px solid #4e5058; padding-left: 8px; margin: 3px 0; color: #b5bac1;
+}
+.discord-mock-embed-desc .md-li { margin: 1px 0 1px 4px; }
+.discord-mock-embed-desc code {
+  background: #1e1f22; padding: 1px 4px; border-radius: 3px;
+  font-family: "Consolas", monospace; font-size: 12px;
+}
+.discord-mock-embed-desc pre {
+  background: #1e1f22; padding: 8px; border-radius: 4px; margin: 4px 0; overflow-x: auto;
+}
+.discord-mock-embed-desc pre code { background: none; padding: 0; }
+.discord-mock-embed-desc a { color: #00a8fc; text-decoration: none; }
+
+{% endblock %}
+
+{% block body %}
+<script>
+  // 디스코드가 알아보는 마크다운 문법 중 자주 쓰는 것만 미리보기용으로 간단히
+  // HTML로 바꿔주는 함수. 완벽한 마크다운 파서는 아니고, 미리보기가 실제 디스코드
+  // 모습이랑 비슷하게 보이는 정도만 목표로 한다. _message_preview.html이 페이지
+  // 맨 위쪽에서 곧바로 이 함수를 부르기 때문에, 이 <script>는 반드시 본문(shell)보다
+  // 앞에 있어야 한다 (뒤에 두면 아직 정의되기 전이라 오류가 난다).
+  function escapeHtml(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function inlineMarkdown(s) {
+    return s
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/\*\*\*([^*]+)\*\*\*/g, "<strong><em>$1</em></strong>")
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/__([^_]+)__/g, "<u>$1</u>")
+      .replace(/~~([^~]+)~~/g, "<s>$1</s>")
+      .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+      .replace(/(^|[^\w])_([^_]+)_/g, "$1<em>$2</em>")
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  }
+
+  function renderDiscordMarkdown(raw) {
+    const lines = (raw || "").split("\n");
+    let html = "";
+    let inCodeBlock = false;
+    let codeBuf = [];
+
+    for (const rawLine of lines) {
+      if (rawLine.trim().startsWith("```")) {
+        if (!inCodeBlock) {
+          inCodeBlock = true;
+          codeBuf = [];
+        } else {
+          inCodeBlock = false;
+          html += "<pre><code>" + escapeHtml(codeBuf.join("\n")) + "</code></pre>";
+        }
+        continue;
+      }
+      if (inCodeBlock) {
+        codeBuf.push(rawLine);
+        continue;
+      }
+
+      const line = escapeHtml(rawLine);
+      const headerMatch = line.match(/^(#{1,3})\s+(.*)$/);
+      if (headerMatch) {
+        html += '<div class="md-h' + headerMatch[1].length + '">' + inlineMarkdown(headerMatch[2]) + "</div>";
+        continue;
+      }
+      if (/^&gt;\s?/.test(line)) {
+        html += '<div class="md-quote">' + inlineMarkdown(line.replace(/^&gt;\s?/, "")) + "</div>";
+        continue;
+      }
+      if (/^[-*]\s+/.test(line)) {
+        html += '<div class="md-li">• ' + inlineMarkdown(line.replace(/^[-*]\s+/, "")) + "</div>";
+        continue;
+      }
+      const numMatch = line.match(/^(\d+\.)\s+(.*)$/);
+      if (numMatch) {
+        html += '<div class="md-li">' + numMatch[1] + " " + inlineMarkdown(numMatch[2]) + "</div>";
+        continue;
+      }
+      if (line.trim() === "") {
+        html += "<br>";
+        continue;
+      }
+      html += "<div>" + inlineMarkdown(line) + "</div>";
+    }
+    return html;
+  }
+</script>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">🐾 랑다</div>
+    <nav>
+      <a href="{{ url_for('guild_page', guild_id=guild_id) }}" class="{{ 'active' if active == 'dashboard' else '' }}">🏠 대시보드</a>
+      <a href="{{ url_for('guild_entrance', guild_id=guild_id) }}" class="{{ 'active' if active == 'entrance' else '' }}">🚪 입장 안내</a>
+      <a href="{{ url_for('guild_verification', guild_id=guild_id) }}" class="{{ 'active' if active == 'verification' else '' }}">🔑 캐릭터 인증</a>
+      <a href="{{ url_for('guild_jobs', guild_id=guild_id) }}" class="{{ 'active' if active == 'jobs' else '' }}">🎭 역할 선택</a>
+      <a href="{{ url_for('guild_announcements', guild_id=guild_id) }}" class="{{ 'active' if active == 'announcements' else '' }}">📢 공지사항</a>
+      <a href="{{ url_for('guild_rules', guild_id=guild_id) }}" class="{{ 'active' if active == 'rules' else '' }}">📜 길드 규칙</a>
+      <a href="{{ url_for('guild_hub', guild_id=guild_id) }}" class="{{ 'active' if active == 'hub' else '' }}">🔊 음성 채널 자동 생성</a>
+      <a href="{{ url_for('guild_tts', guild_id=guild_id) }}" class="{{ 'active' if active == 'tts' else '' }}">🗣️ TTS</a>
+      <a href="{{ url_for('guild_ranks', guild_id=guild_id) }}" class="{{ 'active' if active == 'ranks' else '' }}">👑 길드 직급</a>
+      <a href="{{ url_for('guild_members', guild_id=guild_id) }}" class="{{ 'active' if active == 'members' else '' }}">🧑‍🤝‍🧑 역할 부여</a>
+      <a href="{{ url_for('guild_cleanup', guild_id=guild_id) }}" class="{{ 'active' if active == 'cleanup' else '' }}">🧹 채팅 정리</a>
+      <a href="{{ url_for('guild_ai_chat', guild_id=guild_id) }}" class="{{ 'active' if active == 'ai_chat' else '' }}">💬 AI 채팅</a>
+      <a href="{{ url_for('guild_music', guild_id=guild_id) }}">🎵 음악 설정</a>
+      <a href="{{ url_for('guild_logs', guild_id=guild_id) }}">📊 재생/에러 로그</a>
+      <a href="{{ url_for('docs') }}" target="_blank">📖 사용법</a>
+      <a href="{{ url_for('prompt_guide') }}" target="_blank">🎨 프롬프트 가이드</a>
+    </nav>
+    {% if session.get('authed') %}
+    <form method="post" action="{{ url_for('logout') }}">
+      <button type="submit">로그아웃</button>
+    </form>
+    {% endif %}
+  </aside>
+
+  <main class="content-wrap">
+    <div class="content-main">
+      <h1 class="page-title">{{ page_title }}</h1>
+      {% if page_desc %}<p class="page-desc">{{ page_desc }}</p>{% endif %}
+      {% block section %}{% endblock %}
+    </div>
+    {% block preview %}{% endblock %}
+  </main>
+</div>
+
+<script>
+  // 이미지 선택 위젯(_image_picker.html) 공통 동작. 페이지마다 이 위젯을 붙이면
+  // (하나뿐이라고 가정) URL/파일 업로드/내장 이미지 중 뭘 고르든 최종적으로는
+  // name="image_file"인 숨겨진 input에 결과 파일을 넣어서, 서버 쪽 코드는 그냥
+  // 지금까지처럼 "파일이 있으면 파일 우선, 없으면 URL" 로직만 보면 되게 만든다.
+  document.querySelectorAll(".image-picker").forEach(function (root) {
+    const tabs = root.querySelectorAll(".ip-tab:not(.ip-ratio-tab)");
+    const panels = root.querySelectorAll(".ip-panel");
+    const finalInput = root.querySelector(".ip-final-input");
+    const fileSource = root.querySelector(".ip-file-source");
+    const gallery = root.querySelectorAll(".ip-gallery-thumb");
+    const cropWrap = root.querySelector(".ip-crop-wrap");
+    const cropImage = root.querySelector(".ip-crop-image");
+    const cropStage = root.querySelector(".ip-crop-stage");
+    const cropBox = root.querySelector(".ip-crop-box");
+    const cropApplyBtn = root.querySelector(".ip-crop-apply");
+    const cropResetBtn = root.querySelector(".ip-crop-reset");
+    const cropRotateBtn = root.querySelector(".ip-crop-rotate");
+    const cropStatus = root.querySelector(".ip-crop-status");
+    const ratioTabs = root.querySelectorAll(".ip-ratio-tab");
+
+    let originalFile = null;
+    let cropRatio = 0;  // 0이면 자유롭게, 아니면 가로/세로 비율(예: 1, 1.7778)
+
+    function clamp(v, min, max) { return Math.max(min, Math.min(v, max)); }
+    function getBoxRect() {
+      return {
+        left: parseFloat(cropBox.style.left) || 0,
+        top: parseFloat(cropBox.style.top) || 0,
+        width: parseFloat(cropBox.style.width) || 0,
+        height: parseFloat(cropBox.style.height) || 0,
+      };
+    }
+    function setBoxRect(r) {
+      Object.assign(cropBox.style, { left: r.left + "px", top: r.top + "px", width: r.width + "px", height: r.height + "px" });
+    }
+
+    ratioTabs.forEach(function (tab) {
+      tab.addEventListener("click", function () {
+        ratioTabs.forEach(function (t) { t.classList.remove("active"); });
+        tab.classList.add("active");
+        cropRatio = parseFloat(tab.dataset.ratio) || 0;
+        // 이미 그려둔 박스가 있으면 지우지 않고, 가운데는 그대로 둔 채 새 비율에
+        // 맞게 모양만 다시 맞춰준다 (매번 처음부터 다시 그릴 필요 없게).
+        if (cropRatio > 0 && !cropBox.hidden) {
+          const rect = cropStage.getBoundingClientRect();
+          const b = getBoxRect();
+          const cx = b.left + b.width / 2, cy = b.top + b.height / 2;
+          let w = b.width, h = b.height;
+          if (w / cropRatio > h) { h = w / cropRatio; } else { w = h * cropRatio; }
+          w = Math.min(w, rect.width);
+          h = Math.min(h, rect.height);
+          setBoxRect({ left: clamp(cx - w / 2, 0, rect.width - w), top: clamp(cy - h / 2, 0, rect.height - h), width: w, height: h });
+        }
+      });
+    });
+
+    function setFinalFile(file) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      finalInput.files = dt.files;
+      // 오른쪽에 미리보기 패널(_message_preview.html)이 있으면, 방금 고른 파일로
+      // 이미지 미리보기도 같이 갱신되도록 알려준다.
+      root.dispatchEvent(new CustomEvent("image-picker:change", { detail: { url: URL.createObjectURL(file) } }));
+    }
+
+    function loadImage(file, isOriginal, statusText) {
+      if (isOriginal) originalFile = file;
+      setFinalFile(file);
+      cropImage.onload = function () {
+        cropBox.hidden = true;
+        cropStatus.textContent = isOriginal ? "" : (statusText || "✂️ 잘린 이미지가 적용됐어요");
+      };
+      cropImage.src = URL.createObjectURL(file);
+      cropWrap.hidden = false;
+    }
+
+    tabs.forEach(function (tab) {
+      tab.addEventListener("click", function () {
+        tabs.forEach(function (t) { t.classList.remove("active"); });
+        tab.classList.add("active");
+        panels.forEach(function (p) { p.hidden = p.dataset.panel !== tab.dataset.mode; });
+        if (tab.dataset.mode === "url") {
+          // URL 탭으로 바꿨으면 이전에 골라둔 파일은 비워서 서버가 URL 값을 쓰게 한다.
+          finalInput.value = "";
+          cropWrap.hidden = true;
+          originalFile = null;
+          // 미리보기 패널한테 "파일은 없어졌으니 URL 입력칸을 대신 봐라"라고 알려준다.
+          root.dispatchEvent(new CustomEvent("image-picker:change", { detail: {} }));
+        }
+      });
+    });
+
+    if (fileSource) {
+      fileSource.addEventListener("change", function () {
+        if (fileSource.files && fileSource.files[0]) loadImage(fileSource.files[0], true);
+      });
+    }
+
+    gallery.forEach(function (thumb) {
+      thumb.addEventListener("click", function () {
+        gallery.forEach(function (t) { t.classList.remove("selected"); });
+        thumb.classList.add("selected");
+        fetch(thumb.src, { credentials: "same-origin" })
+          .then(function (r) { return r.blob(); })
+          .then(function (blob) {
+            loadImage(new File([blob], thumb.dataset.name.split("/").pop(), { type: blob.type }), true);
+          });
+      });
+    });
+
+    // 마우스(mousedown/move/up)와 손가락 터치(touchstart/move/end) 둘 다 같은
+    // 방식으로 처리한다. 폰에서는 mousedown류 이벤트가 안 먹혀서 드래그 자르기가
+    // 안 되던 문제를 이걸로 해결한다.
+    function pointFromEvent(e) {
+      const src = e.touches && e.touches.length ? e.touches[0] : e;
+      return { x: src.clientX, y: src.clientY };
+    }
+
+    // 박스 하나로 그리기(draw)/옮기기(move)/모서리로 크기 조절(resize) 세 가지를
+    // 전부 처리한다 — 어디를 눌렀는지에 따라 모드가 정해진다: 모서리 손잡이를 누르면
+    // resize, 이미 그려진 박스 안쪽을 누르면 move, 그 외 빈 곳을 누르면 새로 draw.
+    if (cropStage) {
+      let dragMode = null;   // "draw" | "move" | "resize"
+      let activeHandle = null;
+      let dragStart = null;  // 드래그 시작 시점의 스테이지 기준 좌표
+      let boxStart = null;   // 드래그 시작 시점의 박스 위치/크기
+
+      function onDragStart(e) {
+        const rect = cropStage.getBoundingClientRect();
+        const p = pointFromEvent(e);
+        dragStart = { x: p.x - rect.left, y: p.y - rect.top };
+
+        if (e.target.dataset && e.target.dataset.handle) {
+          dragMode = "resize";
+          activeHandle = e.target.dataset.handle;
+          boxStart = getBoxRect();
+        } else if (e.target === cropBox && !cropBox.hidden) {
+          dragMode = "move";
+          boxStart = getBoxRect();
+        } else {
+          dragMode = "draw";
+          setBoxRect({ left: dragStart.x, top: dragStart.y, width: 0, height: 0 });
+          cropBox.hidden = false;
+        }
+        if (e.touches) e.preventDefault(); // 드래그 중 화면이 같이 스크롤되는 것 방지
+      }
+
+      function resizeFromHandle(handle, x, y, rect) {
+        // 드래그하는 손잡이의 "반대쪽" 모서리는 고정된 채로, 손잡이 쪽만 포인터를 따라간다.
+        const anchorX = handle.includes("w") ? boxStart.left + boxStart.width : boxStart.left;
+        const anchorY = handle.includes("n") ? boxStart.top + boxStart.height : boxStart.top;
+
+        let width = Math.abs(x - anchorX);
+        let height = Math.abs(y - anchorY);
+        if (cropRatio > 0) {
+          if (width / cropRatio > height) { height = width / cropRatio; } else { width = height * cropRatio; }
+        }
+
+        let left = handle.includes("w") ? anchorX - width : anchorX;
+        let top = handle.includes("n") ? anchorY - height : anchorY;
+
+        // 스테이지 밖으로 나가면, 고정된 반대쪽 모서리는 그대로 두고 크기만 줄인다.
+        if (left < 0) { width += left; left = 0; }
+        if (top < 0) { height += top; top = 0; }
+        if (left + width > rect.width) width = rect.width - left;
+        if (top + height > rect.height) height = rect.height - top;
+
+        setBoxRect({ left, top, width: Math.max(0, width), height: Math.max(0, height) });
+      }
+
+      function onDragMove(e) {
+        if (!dragMode) return;
+        const rect = cropStage.getBoundingClientRect();
+        const p = pointFromEvent(e);
+        const x = clamp(p.x - rect.left, 0, rect.width);
+        const y = clamp(p.y - rect.top, 0, rect.height);
+
+        if (dragMode === "draw") {
+          let bx = x, by = y;
+          if (cropRatio > 0) {
+            // 비율이 고정된 상태면, 드래그 방향과 상관없이 가로/세로 중 더 많이 움직인
+            // 쪽을 기준으로 나머지 한 변을 그 비율에 맞게 계산한다.
+            const dx = bx - dragStart.x;
+            const dy = by - dragStart.y;
+            if (Math.abs(dx) > Math.abs(dy) * cropRatio) {
+              by = dragStart.y + Math.sign(dy || 1) * Math.abs(dx) / cropRatio;
+            } else {
+              bx = dragStart.x + Math.sign(dx || 1) * Math.abs(dy) * cropRatio;
+            }
+            bx = clamp(bx, 0, rect.width);
+            by = clamp(by, 0, rect.height);
+          }
+          setBoxRect({
+            left: Math.min(bx, dragStart.x), top: Math.min(by, dragStart.y),
+            width: Math.abs(bx - dragStart.x), height: Math.abs(by - dragStart.y),
+          });
+        } else if (dragMode === "move") {
+          const dx = x - dragStart.x, dy = y - dragStart.y;
+          setBoxRect({
+            left: clamp(boxStart.left + dx, 0, rect.width - boxStart.width),
+            top: clamp(boxStart.top + dy, 0, rect.height - boxStart.height),
+            width: boxStart.width, height: boxStart.height,
+          });
+        } else if (dragMode === "resize") {
+          resizeFromHandle(activeHandle, x, y, rect);
+        }
+
+        if (e.touches) e.preventDefault();
+      }
+
+      function onDragEnd() { dragMode = null; activeHandle = null; }
+
+      cropStage.addEventListener("mousedown", onDragStart);
+      cropStage.addEventListener("mousemove", onDragMove);
+      window.addEventListener("mouseup", onDragEnd);
+      cropStage.addEventListener("touchstart", onDragStart, { passive: false });
+      cropStage.addEventListener("touchmove", onDragMove, { passive: false });
+      window.addEventListener("touchend", onDragEnd);
+    }
+
+    if (cropRotateBtn) {
+      cropRotateBtn.addEventListener("click", function () {
+        // 지금 보이는 이미지를 시계방향으로 90도 돌린 새 이미지로 바꿔치기한다.
+        // 폰으로 찍은 사진이 옆으로 누워 나올 때 이걸로 바로잡을 수 있다.
+        const canvas = document.createElement("canvas");
+        canvas.width = cropImage.naturalHeight;
+        canvas.height = cropImage.naturalWidth;
+        const ctx = canvas.getContext("2d");
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate(Math.PI / 2);
+        ctx.drawImage(cropImage, -cropImage.naturalWidth / 2, -cropImage.naturalHeight / 2);
+        cropBox.hidden = true;
+        canvas.toBlob(function (blob) {
+          loadImage(new File([blob], "rotated.png", { type: "image/png" }), false, "🔄 회전이 적용됐어요");
+        }, "image/png");
+      });
+    }
+
+    if (cropApplyBtn) {
+      cropApplyBtn.addEventListener("click", function () {
+        if (cropBox.hidden) return;
+        const scaleX = cropImage.naturalWidth / cropImage.clientWidth;
+        const scaleY = cropImage.naturalHeight / cropImage.clientHeight;
+        const sx = parseFloat(cropBox.style.left) * scaleX;
+        const sy = parseFloat(cropBox.style.top) * scaleY;
+        const sw = parseFloat(cropBox.style.width) * scaleX;
+        const sh = parseFloat(cropBox.style.height) * scaleY;
+        if (sw < 4 || sh < 4) return;
+
+        const canvas = document.createElement("canvas");
+        canvas.width = sw;
+        canvas.height = sh;
+        canvas.getContext("2d").drawImage(cropImage, sx, sy, sw, sh, 0, 0, sw, sh);
+        canvas.toBlob(function (blob) {
+          loadImage(new File([blob], "cropped.png", { type: "image/png" }), false);
+        }, "image/png");
+      });
+    }
+
+    if (cropResetBtn) {
+      cropResetBtn.addEventListener("click", function () {
+        if (originalFile) loadImage(originalFile, true);
+      });
+    }
+  });
+</script>
+
+<script>
+  // 글 꾸미기 툴바(_markdown_toolbar.html) 공통 동작. 버튼을 누르면 연결된
+  // textarea의 선택 영역에 마크다운 기호를 붙이거나, 선택한 줄 앞에 붙인다.
+  // (renderDiscordMarkdown 등 마크다운 렌더링 함수는 이 파일 맨 위, <div class="shell">
+  // 앞에 정의되어 있다 — _message_preview.html이 페이지 로드 즉시 그 함수를 부르기
+  // 때문에, 본문보다 늦게 정의되면 안 된다)
+  document.querySelectorAll(".md-toolbar").forEach(function (toolbar) {
+    const textarea = document.querySelector(toolbar.dataset.target);
+    if (!textarea) return;
+
+    function notifyChange() {
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    function wrapSelection(before, after) {
+      if (after === undefined) after = before;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const selected = textarea.value.slice(start, end) || "텍스트";
+      textarea.focus();
+      textarea.setRangeText(before + selected + after, start, end, "select");
+      notifyChange();
+    }
+
+    function togglePrefixOnLines(prefix) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const value = textarea.value;
+      const lineStart = value.lastIndexOf("\n", start - 1) + 1;
+      let lineEnd = value.indexOf("\n", end === start ? end : end - 1);
+      if (lineEnd === -1) lineEnd = value.length;
+
+      const block = value.slice(lineStart, lineEnd);
+      const lines = block.split("\n");
+      const alreadyPrefixed = lines.every(function (l) { return l.startsWith(prefix); });
+      const newLines = lines.map(function (l) {
+        return alreadyPrefixed ? l.slice(prefix.length) : prefix + l;
+      });
+
+      textarea.focus();
+      textarea.setRangeText(newLines.join("\n"), lineStart, lineEnd, "select");
+      notifyChange();
+    }
+
+    function insertLink() {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const selected = textarea.value.slice(start, end) || "링크 텍스트";
+      textarea.focus();
+      textarea.setRangeText("[" + selected + "](URL)", start, end, "end");
+      notifyChange();
+    }
+
+    toolbar.querySelectorAll("button[data-md]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        switch (btn.dataset.md) {
+          case "bold": wrapSelection("**"); break;
+          case "italic": wrapSelection("*"); break;
+          case "underline": wrapSelection("__"); break;
+          case "strike": wrapSelection("~~"); break;
+          case "code": wrapSelection("`"); break;
+          case "h1": togglePrefixOnLines("# "); break;
+          case "h2": togglePrefixOnLines("## "); break;
+          case "h3": togglePrefixOnLines("### "); break;
+          case "quote": togglePrefixOnLines("> "); break;
+          case "list": togglePrefixOnLines("- "); break;
+          case "link": insertLink(); break;
+        }
+      });
+    });
+  });
+</script>
+{% endblock %}

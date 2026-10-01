@@ -24,3 +24,5 @@ services:
       - "5050:5000"
     volumes:
       - ./playlists.db:/app/playlists.db
+      # 서버 관리 설정(data/settings.json) — 봇과 같은 파일을 읽고 쓴다
+      - ./data:/app/data

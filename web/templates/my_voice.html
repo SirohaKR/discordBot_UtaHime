@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}내 목소리 설정 — 랑다{% endblock %}
+
+{% block body %}
+<header class="topbar">
+  <div>
+    <h1>🎙️ 내 목소리 설정</h1>
+    <p>내 메시지를 TTS가 읽어줄 때 쓸 목소리를 나만 따로 정할 수 있어요.</p>
+  </div>
+  {% if logged_in %}
+  <form method="post" action="{{ url_for('oauth_logout') }}">
+    <button type="submit">로그아웃</button>
+  </form>
+  {% endif %}
+</header>
+
+<main class="centered">
+  {% if not logged_in %}
+  <div class="card" style="max-width:420px;margin:40px auto;text-align:center;">
+    <h2>디스코드로 로그인해주세요</h2>
+    <p class="desc">본인 계정으로 로그인해야, 내 메시지에만 적용될 목소리를 정할 수 있어요.</p>
+    <a href="{{ url_for('oauth_login') }}" style="text-decoration:none;">
+      <button type="button" style="width:100%;">🔐 디스코드로 로그인</button>
+    </a>
+  </div>
+
+  {% elif not_member %}
+  <div class="card" style="max-width:420px;margin:40px auto;text-align:center;">
+    <h2>⚠️ 길드 멤버가 아니에요</h2>
+    <p class="desc">로그인한 디스코드 계정이 이 서버의 멤버가 아니라서, 목소리를 설정할 수 없어요.</p>
+  </div>
+
+  {% else %}
+  <div class="card">
+    <p class="desc" style="margin-bottom:14px;">
+      <strong style="color:var(--text);">{{ display_name }}</strong>님으로 로그인했어요.
+      아래에서 목소리를 고르고 저장하면, TTS 채널에 쓴 내 메시지는 이 목소리로 읽혀요
+      (따로 안 고르면 서버 기본값을 써요).
+    </p>
+
+    <form method="post">
+      <label>추천 목소리 — 눌러서 먼저 들어보세요</label>
+      <div class="tts-voice-list">
+        <label class="tts-voice-row">
+          <input type="radio" name="voice" value="" {% if not current_voice %}checked{% endif %}>
+          <span>서버 기본값 사용</span>
+        </label>
+        {% for v in tts_voices %}
+        <label class="tts-voice-row">
+          <input type="radio" name="voice" value="{{ v.id }}" {% if current_voice == v.id %}checked{% endif %}>
+          <span>{{ v.label }}</span>
+          {% if v.preview_url %}
+          <button type="button" class="tts-preview-btn" data-external-preview="{{ v.preview_url }}">▶️ 미리듣기</button>
+          {% else %}
+          <button type="button" class="tts-preview-btn" data-voice="{{ v.id }}">▶️ 미리듣기</button>
+          {% endif %}
+        </label>
+        {% endfor %}
+      </div>
+
+      <label style="margin-top:18px;">타입캐스트 목소리에서 검색하기 (이름/성별/나이/용도로 찾아보세요 — 비워두면 전체 목록이 보여요)</label>
+      <input type="text" id="typecast-search-input" placeholder="예: 여성, 청년, 상현, 애니메이션...">
+      <div class="tts-voice-list" id="typecast-search-results" style="margin-top:8px;"></div>
+
+      <audio id="tts-preview-player" style="display:none;"></audio>
+
+      <button type="submit">💾 내 목소리 저장</button>
+    </form>
+  </div>
+  {% endif %}
+</main>
+
+<script>
+  (function () {
+    const player = document.getElementById("tts-preview-player");
+    if (!player) return;
+
+    function playPreview(voice) {
+      if (!voice) return;
+      player.src = "{{ url_for('my_voice_preview') }}?voice=" + encodeURIComponent(voice);
+      player.play();
+    }
+
+    function playExternalPreview(url) {
+      if (!url) return;
+      player.src = url;  // 타입캐스트 무료 샘플 — 크레딧 안 씀.
+      player.play();
+    }
+
+    function bindPreviewButtons(root) {
+      root.querySelectorAll(".tts-preview-btn[data-voice]").forEach(function (btn) {
+        btn.addEventListener("click", function () { playPreview(btn.dataset.voice); });
+      });
+      root.querySelectorAll(".tts-preview-btn[data-external-preview]").forEach(function (btn) {
+        btn.addEventListener("click", function () { playExternalPreview(btn.dataset.externalPreview); });
+      });
+    }
+
+    bindPreviewButtons(document);
+
+    const searchInput = document.getElementById("typecast-search-input");
+    const resultsBox = document.getElementById("typecast-search-results");
+    const currentVoiceId = {{ (current_voice or "")|tojson }};
+    let searchTimer = null;
+
+    function renderSearchResults(voices) {
+      resultsBox.innerHTML = "";
+      voices.forEach(function (v) {
+        const label = document.createElement("label");
+        label.className = "tts-voice-row";
+
+        const radio = document.createElement("input");
+        radio.type = "radio";
+        radio.name = "voice";
+        radio.value = v.id;
+        radio.checked = v.id === currentVoiceId;
+
+        const span = document.createElement("span");
+        span.textContent = v.label + (radio.checked ? " (현재 선택됨)" : "");
+
+        label.appendChild(radio);
+        label.appendChild(span);
+
+        if (v.preview_url) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "tts-preview-btn";
+          btn.textContent = "▶️ 미리듣기";
+          btn.dataset.externalPreview = v.preview_url;
+          label.appendChild(btn);
+        }
+
+        resultsBox.appendChild(label);
+      });
+      bindPreviewButtons(resultsBox);
+    }
+
+    function runSearch(q) {
+      fetch("{{ url_for('my_voice_search_voices') }}?q=" + encodeURIComponent(q))
+        .then(function (res) { return res.json(); })
+        .then(renderSearchResults)
+        .catch(function () { renderSearchResults([]); });
+    }
+
+    if (searchInput) {
+      searchInput.addEventListener("input", function () {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function () { runSearch(searchInput.value.trim()); }, 350);
+      });
+      runSearch("");  // 페이지 열자마자 전체 목록 한 번 보여주기
+    }
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "guild_shell.html" %}
+{% block section %}
+<div class="card">
+  <p class="desc" style="margin-bottom:18px;">
+    길드원이 입장 안내의 버튼을 눌러 만들어진 비공개 채널에 표시될 안내 문구입니다.
+    길드원이 그 채널에 인증용 이미지를 올리면 "✅ 승인 / ❌ 거절" 버튼이 달린 카드가
+    뜨고, '역할 관리' 권한이 있는 관리자가 승인을 누르면 아래에서 고른 역할이 자동으로
+    부여됩니다.
+  </p>
+
+  <form method="post">
+    <label>인증 안내 제목</label>
+    <input type="text" name="title" placeholder="예: 🔑 캐릭터 인증" value="{{ verification.title or '' }}">
+
+    <label>인증 안내 내용</label>
+    {% set target_selector = '[name="body"]' %}
+    {% include "_markdown_toolbar.html" %}
+    <textarea name="body" rows="10" placeholder="예: 본인 캐릭터가 보이는 스크린샷을 이 채널에 올려주세요.">{{ verification.body or '' }}</textarea>
+
+    <div class="row">
+      <div>
+        <label>인증 채널 (비공개 스레드가 여기에 만들어집니다)</label>
+        <select name="channel_id" required>
+          {% for c in text_channels %}
+          <option value="{{ c.id }}" {% if verification.channel_id == c.id|int %}selected{% endif %}>#{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>승인 시 부여할 역할</label>
+        <select name="role_id" required>
+          {% for r in roles %}
+          <option value="{{ r.id }}" {% if verification.role_id == r.id|int %}selected{% endif %}>{{ r.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <label>인증 로그 채널 (선택)</label>
+    <select name="log_channel_id">
+      <option value="">(사용 안 함)</option>
+      {% for c in text_channels %}
+      <option value="{{ c.id }}" {% if verification.log_channel_id == c.id|int %}selected{% endif %}>#{{ c.name }}</option>
+      {% endfor %}
+    </select>
+    <p class="desc" style="margin-top:6px;">고르면 승인될 때마다 누가 언제 인증됐는지 이 채널에 자동으로 정리해서 남겨요.</p>
+
+    <button type="submit">💾 캐릭터 인증 설정 저장</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block preview %}
+{% set preview_id = "verification" %}
+{% set title_selector = '[name="title"]' %}
+{% set body_selector = '[name="body"]' %}
+{% include "_message_preview.html" %}
+{% endblock %}

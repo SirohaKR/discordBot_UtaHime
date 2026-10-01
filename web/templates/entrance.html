@@ -1,0 +1,38 @@
+{% extends "guild_shell.html" %}
+{% block section %}
+<div class="card">
+  <p class="desc" style="margin-bottom:18px;">
+    여기서 쓴 제목/내용/이미지로 안내 메시지를 올리면, 그 밑에 "🔑 캐릭터 인증하러
+    가기" 버튼이 자동으로 붙습니다. 길드원이 그 버튼을 누르면 본인만 볼 수 있는
+    비공개 채널이 만들어지고, "캐릭터 인증" 페이지에서 쓴 안내가 그 안에 표시됩니다.
+  </p>
+
+  <form method="post" enctype="multipart/form-data">
+    <label>안내 제목</label>
+    <input type="text" name="title" placeholder="예: 👋 환영합니다!" value="{{ entrance.title or '' }}">
+
+    <label>안내 내용</label>
+    {% set target_selector = '[name="body"]' %}
+    {% include "_markdown_toolbar.html" %}
+    <textarea name="body" rows="10" placeholder="예: 아래 버튼을 눌러 캐릭터 인증을 진행해주세요.">{{ entrance.body or '' }}</textarea>
+
+    {% include "_image_picker.html" %}
+
+    <label>안내를 올릴 채널</label>
+    <select name="channel_id" required>
+      {% for c in text_channels %}
+      <option value="{{ c.id }}" {% if entrance.channel_id == c.id|int %}selected{% endif %}>#{{ c.name }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">📢 입장 안내 게시하기</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block preview %}
+{% set preview_id = "entrance" %}
+{% set title_selector = '[name="title"]' %}
+{% set body_selector = '[name="body"]' %}
+{% set button_label = "🔑 캐릭터 인증하러 가기" %}
+{% include "_message_preview.html" %}
+{% endblock %}

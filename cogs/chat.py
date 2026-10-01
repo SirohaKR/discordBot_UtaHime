@@ -93,21 +93,6 @@ class ChatChannel(commands.Cog):
             for chunk in chunks[1:]:
                 await message.channel.send(chunk)
 
-    @app_commands.command(name="채팅채널설정", description="현재 채널을 봇과 자유롭게 대화하는 채널로 지정합니다.")
-    @app_commands.guild_only()
-    async def set_chat_channel(self, interaction: discord.Interaction):
-        await chat_channel_db.async_set_channel(self.bot.loop, interaction.guild.id, interaction.channel.id)
-        await interaction.response.send_message(
-            f"✅ 이제 {interaction.channel.mention} 에서 저와 자유롭게 대화하실 수 있어요, 회원님. "
-            "그리고 싶은 그림 얘기를 해주시면 프롬프트도 같이 다듬어드릴게요."
-        )
-
-    @app_commands.command(name="채팅채널설정해제", description="자유 채팅 채널 지정을 해제합니다.")
-    @app_commands.guild_only()
-    async def clear_chat_channel(self, interaction: discord.Interaction):
-        await chat_channel_db.async_clear_channel(self.bot.loop, interaction.guild.id)
-        await interaction.response.send_message("✅ 채팅 채널 지정을 해제했습니다.")
-
     @app_commands.command(name="채팅초기화", description="이 채널에서 저와 나눈 대화 기억을 초기화합니다.")
     @app_commands.guild_only()
     async def reset_chat(self, interaction: discord.Interaction):
@@ -156,12 +141,19 @@ class ChatChannel(commands.Cog):
             inline=False,
         )
         embed.add_field(
+            name="🛡️ 서버 관리 (웹 관리 페이지)",
+            value=(
+                "입장 안내 + 🔑 캐릭터 인증 버튼(비공개 스레드 → 관리자 승인 → 역할 부여)\n"
+                "🎭 이모지로 역할 셀프 선택 · 📢 공지사항 · 📜 길드 규칙 · 👑 직급/역할 부여 · 🧹 채팅 정리\n"
+                "`/설정` 관리 웹페이지 주소 받기 (서버 소유자 전용)"
+            ),
+            inline=False,
+        )
+        embed.add_field(
             name="⚙️ 채널 설정 (관리용)",
             value=(
-                "`/프롬프트채널설정` `/채팅채널설정` (+각각 `해제`) `/채팅초기화`\n"
-                "`/tts채널설정` `/tts채널해제` `/tts기본목소리`\n"
-                "`/음성허브추가` `/음성허브삭제` `/음성허브목록`\n"
-                "`/설정` 음악 전용 채널 지정"
+                "음악 채널 · 채팅/프롬프트 채널 · TTS 채널/기본 목소리 · 음성 허브는\n"
+                "전부 웹 관리 페이지에서 설정해요 (서버 소유자가 `/설정`으로 주소 확인)"
             ),
             inline=False,
         )

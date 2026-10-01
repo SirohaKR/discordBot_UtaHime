@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}랑다AI 설정{% endblock %}</title>
+  <style>
+    /* MEE6 대시보드 느낌 참고: 다크 배경 + 왼쪽 사이드바 + 카드형 모듈 + 파란 액센트 */
+    :root {
+      color-scheme: dark;
+      --bg: #0f111a;
+      --panel: #171a26;
+      --card: #1c2032;
+      --card-border: #2a2f45;
+      --text: #e7e9f2;
+      --muted: #8990a8;
+      --accent: #5b8cff;
+      --accent-hover: #4874e6;
+      --danger: #e2574c;
+      --danger-hover: #c9463c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      line-height: 1.5;
+    }
+    a { color: var(--accent); }
+
+    /* 기본(로그인/서버 선택) 페이지용 상단바 + 가운데 정렬 레이아웃 */
+    header.topbar {
+      background: var(--panel);
+      border-bottom: 1px solid var(--card-border);
+      padding: 18px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    header.topbar h1 { margin: 0; font-size: 20px; }
+    header.topbar p { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+    main.centered {
+      max-width: 760px;
+      margin: 24px auto 64px;
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* 랑다AI 로고/타이틀 공통 */
+    .brand { font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+
+    /* 카드형 모듈 — 아이콘 배지 + 제목 */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 22px 24px;
+    }
+    .card-title { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+    .card-icon {
+      width: 34px; height: 34px; border-radius: 10px;
+      background: rgba(91, 140, 255, 0.15);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px; flex-shrink: 0;
+    }
+    .card h2 { margin: 0; font-size: 16px; }
+    .card p.desc { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+
+    label { display: block; font-size: 13px; margin: 12px 0 4px; font-weight: 600; color: var(--text); }
+    select, input[type=text], input[type=password], textarea {
+      width: 100%;
+      padding: 9px 11px;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      font-size: 14px;
+      background: var(--panel);
+      color: var(--text);
+      font-family: inherit;
+      resize: vertical;
+    }
+    select:focus, input:focus { outline: none; border-color: var(--accent); }
+
+    .row { display: flex; gap: 10px; align-items: end; }
+    .row > div { flex: 1; }
+
+    button {
+      margin-top: 16px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: var(--accent-hover); }
+    button:disabled { background: var(--card-border); color: var(--muted); cursor: not-allowed; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--card-border); font-size: 13px; }
+    .tag {
+      font-size: 11px; color: var(--muted); background: var(--panel);
+      display: inline-block; padding: 3px 9px; border-radius: 999px;
+    }
+
+    /* TTS 목소리 목록 — 관리자 페이지("🗣️ TTS")와 "내 목소리 설정" 오픈 페이지가 같이 쓴다 */
+    .tts-voice-list {
+      margin-top: 6px; max-height: 320px; overflow-y: auto;
+      border: 1px solid var(--card-border); border-radius: 8px; padding: 0 8px;
+    }
+    .tts-voice-row {
+      display: flex; align-items: center; gap: 10px; padding: 8px 4px;
+      border-bottom: 1px solid var(--card-border); font-size: 13px; cursor: pointer;
+    }
+    .tts-voice-row:last-child { border-bottom: none; }
+    .tts-voice-row span { flex: 1; }
+    .tts-preview-btn { margin-top: 0; padding: 5px 12px; font-size: 12px; background: var(--panel); color: var(--text); border: 1px solid var(--card-border); }
+    .tts-preview-btn:hover { background: var(--accent); border-color: var(--accent); }
+    {% block extra_style %}{% endblock %}
+  </style>
+</head>
+<body>
+  {% block body %}
+  <header class="topbar">
+    <div>
+      <h1>🐾 랑다AI 설정 페이지</h1>
+      <p>메이플스토리 길드 역할·채널 관리 — 여기서 정한 값대로 봇이 실제로 동작합니다.</p>
+    </div>
+    {% if session.get('authed') %}
+    <form method="post" action="{{ url_for('logout') }}">
+      <button type="submit">로그아웃</button>
+    </form>
+    {% endif %}
+  </header>
+  <main class="centered">
+    {% block content %}{% endblock %}
+  </main>
+  {% endblock %}
+</body>
+</html>

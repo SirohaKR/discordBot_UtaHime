@@ -1,0 +1,27 @@
+{% extends "guild_shell.html" %}
+{% block section %}
+<div class="card">
+  <p class="desc" style="margin-bottom:18px;">"길드 직급" 페이지에서 역할을 먼저 연결해야 여기서 부여할 수 있습니다.</p>
+  <form method="post">
+    <div class="row">
+      <div>
+        <label>멤버</label>
+        <select name="member_id" required>
+          {% for m in members %}
+          <option value="{{ m.id }}">{{ m.name }}{% if m.current_rank %} ({{ m.current_rank }}){% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>직급</label>
+        <select name="rank" required>
+          {% for rank in guild_ranks %}
+          <option value="{{ rank }}">{{ rank }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <button type="submit">👑 역할 부여</button>
+  </form>
+</div>
+{% endblock %}

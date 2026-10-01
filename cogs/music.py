@@ -430,6 +430,7 @@ class MusicPlayer(commands.Cog):
         self._last_render_key = None
 
         self.controller_view = ControllerView(self)
+        self._known_music_channels: dict = {}  # 웹에서 바꾼 음악 채널 감지용 (guild_id -> channel_id)
 
         # 저장된 길드가 정확히 하나뿐이면(개인/소규모 운영 기준) 그 설정을 이어서 사용.
         # 여러 길드가 저장돼 있으면 명령 실행 시점(cog_before_invoke)에 guild_id가 잡힌다.
@@ -503,11 +504,39 @@ class MusicPlayer(commands.Cog):
         except Exception as e:
             print(f"⚠️ [WARN] 재생 상태 초기화 실패: {e}")
 
+    async def _check_web_channel_changes(self):
+        """웹에서 음악 전용 채널을 바꿨는지 서버별로 확인해서 적용한다.
+
+        처음 한 번은 현재 DB 값을 기준점으로만 기록하고, 그 뒤로 값이 바뀐 서버만 적용한다.
+        """
+        for gid in await guild_settings_db.async_list_guild_ids(self.bot.loop):
+            row = await guild_settings_db.async_get_settings(self.bot.loop, gid)
+            channel_id = row.get("music_channel_id")
+            if gid not in self._known_music_channels:
+                self._known_music_channels[gid] = channel_id
+                continue
+            if channel_id == self._known_music_channels[gid]:
+                continue
+            self._known_music_channels[gid] = channel_id
+            if gid == self.guild_id and channel_id == self.music_channel_id:
+                continue  # 봇이 스스로 저장한 값
+            if self.vc and gid != self.guild_id:
+                print(f"⚠️ [WARN] 다른 서버(guild={self.guild_id})에서 재생 중이라 음악 채널 변경을 보류합니다.")
+                self._known_music_channels[gid] = None  # 재생이 끝나면 다시 시도되도록
+                continue
+            await self.apply_music_channel(gid, channel_id)
+
     async def _settings_poll_loop(self):
         """웹 설정 페이지에서 바뀐 값을 몇 초 안에 봇에 반영한다."""
         await self.bot.wait_until_ready()
         while not self.bot.is_closed():
             await asyncio.sleep(5)
+            try:
+                await self._check_web_channel_changes()
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                print(f"⚠️ [WARN] 음악 채널 변경 확인 오류: {e}")
             if not self.guild_id:
                 continue
             try:
@@ -582,7 +611,11 @@ class MusicPlayer(commands.Cog):
         print(f"✅ [LOG] 레거시 bot_settings.json → DB 마이그레이션 완료 (guild_id={guild_id})")
 
     async def reconnect_controller_message(self):
-        """봇 재시작 후 저장된 컨트롤러 메시지를 다시 연결(on_ready에서 호출)."""
+        """봇 재시작 후 저장된 컨트롤러 메시지를 다시 연결(on_ready에서 호출).
+        봇이 꺼져 있는 동안 웹에서 채널을 바꿨으면 컨트롤러를 새 채널에 다시 올린다."""
+        if self.music_channel_id and not self.controller_message_id and self.guild_id:
+            await self.apply_music_channel(self.guild_id, self.music_channel_id)
+            return
         if not (self.music_channel_id and self.controller_message_id):
             return
         try:
@@ -597,8 +630,10 @@ class MusicPlayer(commands.Cog):
             self._last_render_key = None
             print(f"🖼️ [LOG] 컨트롤러 메시지 재연결 성공 (ID: {self.controller_message_id})")
         except discord.NotFound:
-            print(f"❌ [LOG] 저장된 메시지 ID({self.controller_message_id}) 없음 → 새로 생성 필요")
+            print(f"❌ [LOG] 저장된 메시지 ID({self.controller_message_id}) 없음 → 새로 생성")
             self.controller_message = None
+            if self.guild_id:
+                await self.apply_music_channel(self.guild_id, self.music_channel_id)
         except Exception as e:
             print(f"❌ [LOG] 컨트롤러 메시지 재연결 중 오류: {e}")
             self.controller_message = None
@@ -809,8 +844,8 @@ class MusicPlayer(commands.Cog):
             await self.controller_view.update_message(None)
 
     # 전용 채널이 이미 지정된 뒤부터 정상 동작하는 명령들.
-    # "설정"으로 채널을 지정하기 전까지는 사용할 수 없다(전용 채널이 없다는 안내만 나감).
-    _CHANNEL_GATED_COMMANDS = {"play", "플레이리스트재생", "join", "leave"}
+    # 웹에서 채널을 지정하기 전까지는 사용할 수 없다(전용 채널이 없다는 안내만 나감).
+    _CHANNEL_GATED_COMMANDS = {"play", "플레이리스트재생", "join", "leave"}  # 전용 채널은 웹에서 지정
     # 이 중 음성 채널 자동 연결이 필요한 명령.
     _VOICE_CONNECT_COMMANDS = {"play", "플레이리스트재생", "join"}
 
@@ -818,7 +853,7 @@ class MusicPlayer(commands.Cog):
         """전용 채널이 지정돼 있고, 현재 채널이 그 채널인지 확인. 아니면 안내 메시지를 보내고 False."""
         if not self.music_channel_id:
             await self._send_temporary_message(
-                ctx.channel, "⚠️ 아직 전용 채널이 지정되지 않았습니다. `/설정`으로 이 채널을 먼저 지정해주세요.", delay=6
+                ctx.channel, "⚠️ 아직 음악 전용 채널이 지정되지 않았습니다. 웹 관리 페이지(`/설정`)의 🎵 음악 설정에서 먼저 지정해주세요.", delay=6
             )
             return False
         if ctx.channel.id != self.music_channel_id:
@@ -1000,13 +1035,13 @@ class MusicPlayer(commands.Cog):
         else:
             await self._send_temporary_message(ctx.channel, f"❌ **{name}** 플레이리스트를 찾을 수 없습니다.", delay=6)
 
-    @commands.hybrid_command(name="join", aliases=["입장"], description="전용 채널에서 봇을 음성 채널에 연결합니다 (전용 채널 지정은 /설정).")
+    @commands.hybrid_command(name="join", aliases=["입장"], description="전용 채널에서 봇을 음성 채널에 연결합니다 (전용 채널 지정은 웹 관리 페이지).")
     async def join_(self, ctx):
         # 전용 채널 확인, 음성 채널 연결은 cog_before_invoke에서 이미 처리됨.
         if self.controller_message is None:
-            # 컨트롤러 메시지가 유실된 경우(수동 삭제 등) 안내만 하고, 복구는 /설정으로.
+            # 컨트롤러 메시지가 유실된 경우(수동 삭제 등) 안내만 하고, 복구는 웹에서 채널을 다시 저장.
             await self._send_temporary_message(
-                ctx.channel, "⚠️ 컨트롤러 메시지가 없습니다. `/설정`을 다시 실행해 복구해주세요.", delay=6
+                ctx.channel, "⚠️ 컨트롤러 메시지가 없습니다. 웹 관리 페이지의 🎵 음악 설정에서 음악 채널을 다시 저장하면 복구돼요.", delay=6
             )
         voice_channel_name = ctx.author.voice.channel.name if ctx.author.voice else "음성 채널"
         await self._send_temporary_message(ctx.channel, f"✅ **{voice_channel_name}**에 연결했습니다.", delay=5)
@@ -1040,30 +1075,52 @@ class MusicPlayer(commands.Cog):
         else:
             await self._send_temporary_message(ctx.channel, "⚠️ 현재 음성 채널에 연결되어 있지 않습니다.", delay=5)
 
-    @commands.hybrid_command(name="설정", aliases=["set_music_channel", "setup"], description="현재 채널을 음악 전용 채널로 지정합니다.")
-    async def set_music_channel(self, ctx):
-        music_channel = ctx.channel
-        self.music_channel_id = music_channel.id
+    async def apply_music_channel(self, guild_id: int, channel_id) -> None:
+        """웹 관리 페이지에서 고른 채널을 음악 전용 채널로 적용한다 (예전 /설정 명령어 역할).
+
+        컨트롤러 메시지가 다른 채널에 있으면 지우고 새 채널에 다시 올린다. channel_id가
+        None이면 전용 채널 지정을 해제하고 컨트롤러 메시지를 지운다.
+        """
+        old = self.controller_message
+        if channel_id is None:
+            if old:
+                with contextlib.suppress(Exception):
+                    await old.delete()
+            self.guild_id = guild_id
+            self.music_channel_id = None
+            self.controller_message = None
+            self.controller_message_id = None
+            self._save_guild_settings()
+            print("🗑️ [LOG] 음악 전용 채널 지정 해제 (웹)")
+            return
+
+        music_channel = self.bot.get_channel(channel_id)
+        if not isinstance(music_channel, discord.TextChannel):
+            print(f"⚠️ [WARN] 웹에서 지정한 음악 채널({channel_id})을 찾을 수 없음")
+            return
+
+        self.guild_id = guild_id
+        self.music_channel_id = channel_id
 
         embed_to_send = discord.Embed(
             title="대기열이 비었습니다.",
-            description="`!play [검색어]` 또는 버튼을 사용하여 음악을 추가하세요.",
+            description="이 채널에 검색어나 유튜브 링크를 입력하거나 버튼을 사용하여 음악을 추가하세요.",
             color=discord.Color.light_grey(),
         ).set_footer(text="이 채널은 음악 전용 채널로 지정되었습니다.")
 
         message_to_edit = None
-        if self.controller_message_id:
-            try:
-                if self.controller_message and self.controller_message.channel.id == self.music_channel_id:
-                    message_to_edit = self.controller_message
-                else:
+        if old and old.channel.id == channel_id:
+            message_to_edit = old
+        else:
+            if old:
+                # 다른 채널에 있던 컨트롤러는 지우고 새 채널로 옮긴다.
+                with contextlib.suppress(Exception):
+                    await old.delete()
+            if self.controller_message_id:
+                try:
                     message_to_edit = await music_channel.fetch_message(self.controller_message_id)
-                    if message_to_edit.channel.id != self.music_channel_id:
-                        await message_to_edit.delete()
-                        message_to_edit = None
-            except (discord.NotFound, discord.HTTPException):
-                message_to_edit = None
-                self.controller_message = None
+                except (discord.NotFound, discord.HTTPException):
+                    message_to_edit = None
 
         if message_to_edit:
             self.controller_message = message_to_edit
@@ -1075,13 +1132,11 @@ class MusicPlayer(commands.Cog):
 
         self.controller_message_created_at = discord.utils.utcnow()
         self._last_render_key = None
-
         self.controller_message_id = self.controller_message.id
         self._save_guild_settings()
-
-        await self._send_temporary_message(
-            ctx.channel, f"✅ 이 채널(<#{self.music_channel_id}>)을 음악 전용 채널로 설정했습니다.", delay=10
-        )
+        if self.current_song:
+            await self.controller_view.update_message(self.current_song)
+        print(f"✅ [LOG] 음악 전용 채널 지정 (웹): #{music_channel.name}")
 
     @commands.hybrid_command(name="volume", aliases=["vol", "볼륨"], description="볼륨을 조회하거나 설정합니다. 예: 30, +10, -20")
     async def volume_(self, ctx, value: str = None):

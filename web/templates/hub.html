@@ -1,0 +1,78 @@
+{% extends "guild_shell.html" %}
+{% block section %}
+<div class="card">
+  <p class="desc" style="margin-bottom:18px;">
+    허브로 지정한 음성채널에 들어가면, 그 허브에 정해둔 이름 규칙대로 새 채널이 자동으로
+    생기고 그쪽으로 이동됩니다. 그 채널이 비면 자동으로 사라져요. 허브는 원하는 만큼
+    여러 개 만들 수 있어요 (예: 이름별 파티방, 번호 매겨진 개인방, 자유 음성방 등).
+  </p>
+
+  <table>
+    {% for hub in voice_hubs %}
+    <tr>
+      <td>{{ channels_by_id.get(hub.id, '(삭제된 채널)') }}</td>
+      <td class="tag">{{ hub.name_template }}</td>
+      <td class="tag">{{ '최대 ' + hub.user_limit|string + '명' if hub.get('user_limit') else '인원 제한 없음' }}</td>
+      <td style="width:70px;">
+        <form method="post" action="{{ url_for('delete_voice_hub', guild_id=guild_id) }}">
+          <input type="hidden" name="index" value="{{ loop.index0 }}">
+          <button type="submit" style="margin:0;background:var(--danger);padding:4px 10px;font-size:12px;">삭제</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="tag">아직 추가된 허브가 없습니다. 아래에서 하나씩 추가해주세요.</td></tr>
+    {% endfor %}
+  </table>
+
+  <form method="post" action="{{ url_for('add_voice_hub', guild_id=guild_id) }}" style="margin-top:18px;border-top:1px solid var(--card-border);padding-top:14px;">
+    <label>기존 음성채널을 허브로 사용</label>
+    <select name="existing_channel_id">
+      <option value="">(선택 안 함 — 아래에서 새로 만들기)</option>
+      {% for c in voice_channels %}
+      <option value="{{ c.id }}">{{ c.name }}</option>
+      {% endfor %}
+    </select>
+
+    <div class="row">
+      <div>
+        <label>또는 새 채널 이름 (예: ➕ 파티 모집)</label>
+        <input type="text" name="new_channel_name" placeholder="새로 만들 경우에만 입력">
+      </div>
+      <div>
+        <label>넣을 카테고리 (선택)</label>
+        <select name="parent_id">
+          <option value="">(없음)</option>
+          {% for cat in categories %}
+          <option value="{{ cat.id }}">{{ cat.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <label>새로 생길 채널 이름 규칙</label>
+    <input type="text" id="hub-template" name="name_template" placeholder="예: {user}의 파티" value="{user}의 파티">
+    <p class="desc" style="margin-top:4px;">
+      <code>{user}</code>는 입장한 사람 이름, <code>{n}</code>은 순서 번호로 자동으로 바뀝니다.
+      아래 버튼을 누르면 자주 쓰는 형태(이름/인원 제한)로 바로 채워져요.
+    </p>
+    <div class="row" style="gap:8px;">
+      <button type="button" onclick="setHubPreset('{user}의 파티', 0)" style="margin-top:0;background:var(--card);color:var(--text);">👤 이름별 파티방</button>
+      <button type="button" onclick="setHubPreset('개인방 {n}', 1)" style="margin-top:0;background:var(--card);color:var(--text);">🔒 1인 입장 개인방</button>
+      <button type="button" onclick="setHubPreset('자유 음성방 {n}', 0)" style="margin-top:0;background:var(--card);color:var(--text);">🗣️ 자유 음성방</button>
+    </div>
+
+    <label>최대 인원 (선택 — 0이나 비워두면 제한 없음)</label>
+    <input type="number" id="hub-user-limit" name="user_limit" min="0" max="99" placeholder="0">
+
+    <button type="submit">➕ 허브 추가</button>
+
+    <script>
+      function setHubPreset(template, userLimit) {
+        document.getElementById("hub-template").value = template;
+        document.getElementById("hub-user-limit").value = userLimit;
+      }
+    </script>
+  </form>
+</div>
+{% endblock %}

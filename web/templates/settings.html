@@ -64,6 +64,8 @@
 <div class="wrap">
 
   <div class="topnav">
+    <a href="{{ url_for('guild_page', guild_id=guild_id) }}">← 서버 관리</a>
+    &nbsp;·&nbsp;
     <a href="{{ url_for('docs') }}">📖 사용법</a>
     &nbsp;·&nbsp;
     <a href="{{ url_for('prompt_guide') }}">🎨 프롬프트 가이드</a>
@@ -72,9 +74,18 @@
   </div>
 
   <div class="card">
-    <h1>🎶 공주님 봇 설정 <span class="muted">(서버 {{ guild_id }})</span></h1>
+    <h1>🎶 음악 설정 <span class="muted">(서버 {{ guild_id }})</span></h1>
 
     <form method="post" action="{{ url_for('update_settings', guild_id=guild_id) }}">
+      <label for="music_channel_id">음악 전용 채널</label>
+      <select id="music_channel_id" name="music_channel_id">
+        <option value="">(지정 안 함)</option>
+        {% for c in text_channels %}
+        <option value="{{ c.id }}" {% if settings.music_channel_id == c.id|int %}selected{% endif %}>#{{ c.name }}</option>
+        {% endfor %}
+      </select>
+      <p class="muted">이 채널에 컨트롤러(재생 버튼) 메시지가 올라가고, 여기에 검색어나 유튜브 링크를 치면 바로 재생돼요.</p>
+
       <label for="volume">기본 볼륨 ({{ volume_percent }}%)</label>
       <input type="number" id="volume" name="volume" min="1" max="200" value="{{ volume_percent }}">
 

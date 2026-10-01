@@ -1,0 +1,21 @@
+{% extends "guild_shell.html" %}
+{% block section %}
+<div class="card">
+  <p class="desc" style="margin-bottom:18px;">
+    길드마스터/부길드장 같은 직급은 아무나 이모티콘으로 스스로 가질 수 없게, 역할만 여기서
+    연결해두고 실제 부여는 "멤버 관리" 페이지에서 관리자가 직접 누릅니다.
+  </p>
+  <form method="post">
+    {% for rank in guild_ranks %}
+    <label>{{ rank }}</label>
+    <select name="role_{{ rank }}">
+      <option value="">(사용 안 함)</option>
+      {% for r in roles %}
+      <option value="{{ r.id }}" {% if rank_role_ids.get(rank) == r.id|int %}selected{% endif %}>{{ r.name }}</option>
+      {% endfor %}
+    </select>
+    {% endfor %}
+    <button type="submit">💾 직급 연결 저장</button>
+  </form>
+</div>
+{% endblock %}

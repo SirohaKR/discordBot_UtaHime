@@ -1,0 +1,21 @@
+<!--
+  텍스트 꾸미기 툴바. 쓰기 전에 set target_selector로 어떤 textarea에 적용할지
+  정해두고 include 하면 된다 (예: '[name="body"]', '#ann-body').
+  버튼을 누르면 선택한 글자에 마크다운 기호를 붙여준다 — 디스코드가 알아보는
+  문법 그대로라 실제로 게시했을 때도 굵게/제목 등으로 표시된다.
+-->
+<div class="md-toolbar" data-target="{{ target_selector }}">
+  <button type="button" data-md="h1" title="제목 1 (# )">H1</button>
+  <button type="button" data-md="h2" title="제목 2 (## )">H2</button>
+  <button type="button" data-md="h3" title="제목 3 (### )">H3</button>
+  <span class="md-toolbar-sep"></span>
+  <button type="button" data-md="bold" title="굵게 (**글자**)"><b>B</b></button>
+  <button type="button" data-md="italic" title="기울임 (*글자*)"><i>I</i></button>
+  <button type="button" data-md="underline" title="밑줄 (__글자__)"><u>U</u></button>
+  <button type="button" data-md="strike" title="취소선 (~~글자~~)"><s>S</s></button>
+  <span class="md-toolbar-sep"></span>
+  <button type="button" data-md="quote" title="인용 (&gt; 글자)">❝</button>
+  <button type="button" data-md="list" title="목록 (- 글자)">≡</button>
+  <button type="button" data-md="code" title="코드 (`글자`)">＜/＞</button>
+  <button type="button" data-md="link" title="링크 ([글자](URL))">🔗</button>
+</div>

@@ -1,0 +1,37 @@
+{% extends "guild_shell.html" %}
+{% block section %}
+<div class="card">
+  <p class="desc" style="margin-bottom:18px;">
+    이벤트, 소식처럼 그때그때 알릴 내용을 제목/내용/이미지로 써서 원하는 채널에
+    올립니다. 누를 때마다 새 메시지로 게시돼요. 계속 남겨둘 규칙은 "길드 규칙"
+    페이지를 이용해주세요.
+  </p>
+
+  <form method="post" enctype="multipart/form-data">
+    <label>공지 제목</label>
+    <input type="text" name="title" placeholder="예: 📜 길드 규칙" value="{{ announcement.title or '' }}">
+
+    <label>공지 내용</label>
+    {% set target_selector = '[name="body"]' %}
+    {% include "_markdown_toolbar.html" %}
+    <textarea name="body" rows="14" placeholder="예: 1. 길드원 간 예의를 지켜주세요...">{{ announcement.body or '' }}</textarea>
+
+    {% include "_image_picker.html" %}
+
+    <label>공지를 올릴 채널</label>
+    <select name="channel_id" required>
+      {% for c in text_channels %}
+      <option value="{{ c.id }}" {% if announcement.channel_id == c.id|int %}selected{% endif %}>#{{ c.name }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">📢 공지 게시하기</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block preview %}
+{% set preview_id = "announcements" %}
+{% set title_selector = '[name="title"]' %}
+{% set body_selector = '[name="body"]' %}
+{% include "_message_preview.html" %}
+{% endblock %}

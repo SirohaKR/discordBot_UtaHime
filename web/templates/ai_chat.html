@@ -1,0 +1,27 @@
+{% extends "guild_shell.html" %}
+{% block section %}
+<div class="card">
+  <form method="post">
+    <label>🗨️ 자유 채팅 채널</label>
+    <p class="desc">이 채널에서는 명령어 없이 말을 걸면 랑다가 답장해요 (일상 대화 + 그림 프롬프트 다듬기).</p>
+    <select name="chat_channel_id">
+      <option value="">(사용 안 함)</option>
+      {% for c in text_channels %}
+      <option value="{{ c.id }}" {% if chat_channel_id == c.id|int %}selected{% endif %}>#{{ c.name }}</option>
+      {% endfor %}
+    </select>
+
+    <label>🎨 프롬프트 추천 채널</label>
+    <p class="desc">이 채널에 문장이나 이미지를 올리면 어울리는 Danbooru 태그를 추천해줘요.</p>
+    <select name="prompt_channel_id">
+      <option value="">(사용 안 함)</option>
+      {% for c in text_channels %}
+      <option value="{{ c.id }}" {% if prompt_channel_id == c.id|int %}selected{% endif %}>#{{ c.name }}</option>
+      {% endfor %}
+    </select>
+
+    <button type="submit">💾 저장</button>
+  </form>
+  <p class="desc" style="margin-top:14px;">저장하면 바로 반영돼요. 대화 기억은 채널에서 <code>/채팅초기화</code>로 지울 수 있어요.</p>
+</div>
+{% endblock %}

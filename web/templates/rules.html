@@ -1,0 +1,36 @@
+{% extends "guild_shell.html" %}
+{% block section %}
+<div class="card">
+  <p class="desc" style="margin-bottom:18px;">
+    길드 규칙처럼 계속 채널에 남겨둘 내용을 제목/내용/이미지로 써서 올립니다. 다시
+    게시하면 새 메시지로 올라가니, 이전 규칙 메시지는 채널에서 직접 지워주세요.
+  </p>
+
+  <form method="post" enctype="multipart/form-data">
+    <label>규칙 제목</label>
+    <input type="text" name="title" placeholder="예: 📜 길드 규칙" value="{{ rules.title or '' }}">
+
+    <label>규칙 내용</label>
+    {% set target_selector = '[name="body"]' %}
+    {% include "_markdown_toolbar.html" %}
+    <textarea name="body" rows="14" placeholder="예: 1. 길드원 간 예의를 지켜주세요...">{{ rules.body or '' }}</textarea>
+
+    {% include "_image_picker.html" %}
+
+    <label>규칙을 올릴 채널</label>
+    <select name="channel_id" required>
+      {% for c in text_channels %}
+      <option value="{{ c.id }}" {% if rules.channel_id == c.id|int %}selected{% endif %}>#{{ c.name }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">📜 길드 규칙 게시하기</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block preview %}
+{% set preview_id = "rules" %}
+{% set title_selector = '[name="title"]' %}
+{% set body_selector = '[name="body"]' %}
+{% include "_message_preview.html" %}
+{% endblock %}

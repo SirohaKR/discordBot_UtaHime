@@ -1,0 +1,60 @@
+<div class="image-picker">
+  <label>이미지 (선택)</label>
+  <div class="ip-tabs">
+    <button type="button" class="ip-tab active" data-mode="url">🔗 URL</button>
+    <button type="button" class="ip-tab" data-mode="upload">📁 파일 업로드</button>
+    <button type="button" class="ip-tab" data-mode="builtin">🖼️ 내장 이미지</button>
+  </div>
+
+  <div class="ip-panel" data-panel="url">
+    <input type="text" name="image_url" placeholder="https://...">
+    <p class="desc">파일을 첨부하거나 내장 이미지를 고르면 이 값은 무시돼요.</p>
+  </div>
+
+  <div class="ip-panel" data-panel="upload" hidden>
+    <input type="file" class="ip-file-source" accept="image/*">
+  </div>
+
+  <div class="ip-panel" data-panel="builtin" hidden>
+    {% if builtin_images %}
+    <div class="ip-gallery">
+      {% for img in builtin_images %}
+      <img src="{{ url_for('serve_asset', filename=img) }}" class="ip-gallery-thumb" data-name="{{ img }}" title="{{ img }}">
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="desc">아직 img/ 폴더에 넣어둔 이미지가 없어요.</p>
+    {% endif %}
+  </div>
+
+  <div class="ip-crop-wrap" hidden>
+    <label>미리보기 · 자르고 싶은 영역을 드래그하세요</label>
+    <div class="ip-tabs">
+      <button type="button" class="ip-tab ip-ratio-tab active" data-ratio="">자유롭게</button>
+      <button type="button" class="ip-tab ip-ratio-tab" data-ratio="1">⬜ 1:1 정사각형</button>
+      <button type="button" class="ip-tab ip-ratio-tab" data-ratio="1.7778">▭ 16:9 가로</button>
+      <button type="button" class="ip-tab ip-ratio-tab" data-ratio="0.5625">▯ 9:16 세로</button>
+    </div>
+    <div class="ip-crop-stage">
+      <img class="ip-crop-image">
+      <div class="ip-crop-box" hidden>
+        <span class="ip-crop-handle" data-handle="nw"></span>
+        <span class="ip-crop-handle" data-handle="ne"></span>
+        <span class="ip-crop-handle" data-handle="sw"></span>
+        <span class="ip-crop-handle" data-handle="se"></span>
+      </div>
+    </div>
+    <div class="ip-crop-actions">
+      <button type="button" class="ip-crop-rotate">🔄 90도 회전</button>
+      <button type="button" class="ip-crop-apply">✂️ 선택 영역으로 자르기</button>
+      <button type="button" class="ip-crop-reset">↩️ 원본으로 되돌리기</button>
+      <span class="ip-crop-status tag"></span>
+    </div>
+    <p class="desc" style="margin-top:6px;">
+      비율을 먼저 고르고 드래그하면 그 비율에 딱 맞게 선택돼요. 휴대폰에서는
+      손가락으로 드래그하면 됩니다. 방향이 안 맞으면 먼저 회전을 눌러보세요.
+    </p>
+  </div>
+
+  <input type="file" name="image_file" class="ip-final-input" hidden>
+</div>

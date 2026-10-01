@@ -1,0 +1,85 @@
+<!--
+  오른쪽 실시간 미리보기 패널. 페이지에서 쓰기 전에 아래 변수를 set 문으로 정해두고
+  include 하면 된다.
+    - preview_id (필수): 이 페이지 안에서만 겹치지 않으면 되는 짧은 영문 이름
+    - title_selector: 제목 입력칸을 찾을 CSS 선택자 (예: '[name="title"]', '#ann-title')
+    - body_selector: 내용 입력칸을 찾을 CSS 선택자
+    - button_label (선택): 임베드 아래에 버튼 모양을 하나 더 보여주고 싶을 때 그 문구
+      (예: 입장 안내 페이지의 "🔑 캐릭터 인증하러 가기" 버튼)
+    - extra_note (선택): 미리보기 밑에 한 줄 더 붙일 안내 문구
+  이미지 미리보기는 _image_picker.html이 쏘는 "image-picker:change" 이벤트를 그대로
+  받아서 자동으로 연동된다 — 페이지에서 따로 챙길 게 없다.
+
+  주의: 이 파셜의 최상위 요소는 <aside class="content-preview"> 하나뿐이어야 한다.
+  guild_shell.html에서 .content-wrap이 display:flex라서, 여기 바깥에 형제로
+  뭘 더 두면(문구든 뭐든) 그게 세 번째 flex 칸으로 취급되어 레이아웃이 깨진다
+  (실제로 겪은 버그라 남겨둠). 덧붙일 내용은 반드시 extra_note로 넘길 것.
+-->
+<aside class="content-preview">
+  <div class="content-preview-label">📱 실제로 이렇게 올라가요 (실시간 미리보기)</div>
+  <div class="discord-mock">
+    <div class="discord-mock-avatar">🐾</div>
+    <div class="discord-mock-main">
+      <div class="discord-mock-header">
+        <span class="discord-mock-name">랑다</span>
+        <span class="discord-mock-bot-tag">BOT</span>
+        <span class="discord-mock-time">오늘 오후 3:00</span>
+      </div>
+      <div class="discord-mock-embed">
+        <div class="discord-mock-embed-title" id="{{ preview_id }}-preview-title"></div>
+        <div class="discord-mock-embed-desc" id="{{ preview_id }}-preview-desc"></div>
+        <img class="discord-mock-embed-image" id="{{ preview_id }}-preview-image" hidden>
+      </div>
+      {% if button_label %}
+      <div class="discord-mock-button">{{ button_label }}</div>
+      {% endif %}
+    </div>
+  </div>
+  {% if extra_note %}
+  <p class="desc" style="margin-top:10px;">{{ extra_note }}</p>
+  {% endif %}
+
+  <script>
+  (function () {
+    const titleSel = {{ title_selector|default("")|tojson }};
+    const bodySel = {{ body_selector|default("")|tojson }};
+    const titleEl = titleSel ? document.querySelector(titleSel) : null;
+    const bodyEl = bodySel ? document.querySelector(bodySel) : null;
+
+    const previewTitle = document.getElementById("{{ preview_id }}-preview-title");
+    const previewDesc = document.getElementById("{{ preview_id }}-preview-desc");
+    const previewImage = document.getElementById("{{ preview_id }}-preview-image");
+
+    function renderText() {
+      // 임베드 제목은 디스코드에서 마크다운이 안 먹혀서 그냥 글자 그대로 보여준다.
+      previewTitle.textContent = (titleEl && titleEl.value.trim()) || "(제목 없음)";
+      // 내용은 실제 디스코드처럼 마크다운(굵게/제목/목록 등)을 적용해서 보여준다.
+      previewDesc.innerHTML = bodyEl ? renderDiscordMarkdown(bodyEl.value) : "";
+    }
+    if (titleEl) titleEl.addEventListener("input", renderText);
+    if (bodyEl) bodyEl.addEventListener("input", renderText);
+    renderText();
+
+    // 이미지 선택 위젯(_image_picker.html)과 연동.
+    const picker = document.querySelector(".image-picker");
+    if (picker) {
+      const urlInput = picker.querySelector('[name="image_url"]');
+
+      function renderImage(fileUrl) {
+        const url = fileUrl || (urlInput && urlInput.value.trim());
+        if (url) {
+          previewImage.src = url;
+          previewImage.hidden = false;
+        } else {
+          previewImage.hidden = true;
+        }
+      }
+
+      picker.addEventListener("image-picker:change", function (e) {
+        renderImage(e.detail && e.detail.url);
+      });
+      if (urlInput) urlInput.addEventListener("input", function () { renderImage(null); });
+    }
+  })();
+  </script>
+</aside>

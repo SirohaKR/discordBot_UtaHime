@@ -73,6 +73,7 @@
       <li><a href="#chat">🗨️ 자유 채팅 채널</a></li>
       <li><a href="#tts">🗣️ TTS</a></li>
       <li><a href="#voice-hub">🔊 음성 허브</a></li>
+      <li><a href="#admin">🛡️ 서버 관리</a></li>
       <li><a href="#music">🎵 음악 재생</a></li>
       <li><a href="#web">🖥️ 웹 설정 페이지</a></li>
       <li><a href="/prompt-guide">🎨 프롬프트 가이드 &amp; 빌더 →</a></li>
@@ -86,8 +87,6 @@
 
     <table>
       <tr><th>명령어</th><th>설명</th></tr>
-      <tr><td class="opt">/프롬프트채널설정</td><td>현재 채널을 프롬프트 추천 전용 채널로 지정합니다 (관리 명령).</td></tr>
-      <tr><td class="opt">/프롬프트채널설정해제</td><td>지정을 해제합니다.</td></tr>
     </table>
 
     <div class="note">
@@ -111,8 +110,6 @@
 
     <table>
       <tr><th>명령어</th><th>설명</th></tr>
-      <tr><td class="opt">/채팅채널설정</td><td>현재 채널을 자유 채팅 채널로 지정합니다 (관리 명령).</td></tr>
-      <tr><td class="opt">/채팅채널설정해제</td><td>지정을 해제합니다.</td></tr>
       <tr><td class="opt">/채팅초기화</td><td>이 채널에서 봇과 나눈 대화 기억을 초기화합니다.</td></tr>
       <tr><td class="opt">/가이드</td><td>어디서나 사용 가능. 봇의 전체 기능을 정리한 임베드를 보여줍니다.</td></tr>
     </table>
@@ -129,9 +126,6 @@
       <tr><td class="opt">/내목소리</td><td>지금 내 메시지를 읽는 목소리를 확인합니다.</td></tr>
       <tr><td class="opt">/목소리초기화</td><td>개인 설정을 지우고 서버 기본 목소리로 돌아갑니다.</td></tr>
       <tr><td class="opt">/목소리미리듣기</td><td>목소리를 mp3로 미리 들어봅니다.</td></tr>
-      <tr><td class="opt">/tts채널설정</td><td>현재 채널을 TTS 채널로 지정합니다 (관리 명령).</td></tr>
-      <tr><td class="opt">/tts채널해제</td><td>TTS 채널 지정을 해제합니다 (관리 명령).</td></tr>
-      <tr><td class="opt">/tts기본목소리</td><td>개인 설정이 없는 사람에게 쓰일 서버 기본 목소리를 정합니다 (관리 명령).</td></tr>
     </table>
   </section>
 
@@ -142,9 +136,25 @@
 
     <table>
       <tr><th>명령어</th><th>설명</th></tr>
-      <tr><td class="opt">/음성허브추가</td><td>음성채널을 허브로 지정합니다. 이름 규칙(예: <code>{user}의 방</code>, <code>개인방 {n}</code>)과 최대 인원을 정할 수 있어요 (관리 명령).</td></tr>
-      <tr><td class="opt">/음성허브삭제</td><td>허브 지정을 해제합니다 (관리 명령).</td></tr>
-      <tr><td class="opt">/음성허브목록</td><td>지정된 허브 목록을 확인합니다.</td></tr>
+    </table>
+  </section>
+
+  <section class="card" id="admin">
+    <h2>🛡️ 서버 관리 (웹 관리 페이지)</h2>
+    <p class="desc">서버 관리 기능은 디스코드 명령어 대신 웹 관리 페이지에서 설정합니다. 음악 채널, 채팅/프롬프트 채널, TTS 채널, 음성 허브 지정도 전부 여기서 해요. 서버 소유자는 <code>/설정</code>으로 주소를 받을 수 있어요 (비밀번호 필요).</p>
+    <table>
+      <tr><th>메뉴</th><th>설명</th></tr>
+      <tr><td class="opt">🚪 입장 안내</td><td>안내 메시지에 "🔑 캐릭터 인증하러 가기" 버튼을 달아 게시합니다.</td></tr>
+      <tr><td class="opt">🔑 캐릭터 인증</td><td>버튼을 누르면 본인만 보이는 비공개 스레드가 생기고, 이미지를 올리면 관리자(역할 관리 권한)가 승인/거절합니다. 승인 시 지정한 역할 부여 + 로그 채널에 기록.</td></tr>
+      <tr><td class="opt">🎭 역할 선택</td><td>공지에 이모지를 달아두면 멤버가 눌러서 역할을 스스로 고릅니다 (하나만 선택).</td></tr>
+      <tr><td class="opt">📢 공지사항 / 📜 길드 규칙</td><td>제목·본문·이미지로 임베드 공지를 게시합니다 (실시간 미리보기, 마크다운 툴바, 내장 이미지).</td></tr>
+      <tr><td class="opt">💬 AI 채팅</td><td>랑다 자유 채팅 채널과 프롬프트 추천 채널을 지정합니다.</td></tr>
+      <tr><td class="opt">🔊 음성 채널 자동 생성</td><td>음성 허브 추가/삭제 .</td></tr>
+      <tr><td class="opt">🗣️ TTS</td><td>TTS 채널과 서버 기본 목소리 설정, 타입캐스트 목소리 검색·미리듣기.</td></tr>
+      <tr><td class="opt">👑 길드 직급 / 🧑‍🤝‍🧑 역할 부여</td><td>직급에 역할을 연결하고 멤버별로 직급을 부여합니다.</td></tr>
+      <tr><td class="opt">🧹 채팅 정리</td><td>채널 메시지를 한꺼번에 삭제합니다 (복구 불가, 확인 체크 필요).</td></tr>
+      <tr><td class="opt">🔔 업데이트 로그</td><td>대시보드에서 채널을 지정하면 봇 업데이트 내역이 자동으로 올라갑니다.</td></tr>
+      <tr><td class="opt">🎙️ 내 목소리 설정</td><td><code>/my-voice</code> 페이지에서 디스코드로 로그인해 내 TTS 목소리를 고를 수 있습니다 (누구나).</td></tr>
     </table>
   </section>
 
@@ -155,7 +165,7 @@
     <h3>설정 &amp; 입장</h3>
     <table>
       <tr><th>명령어</th><th>설명</th></tr>
-      <tr><td class="opt">/설정</td><td>현재 채널을 음악 전용 채널로 지정하고, 재생을 조작할 컨트롤러 메시지를 게시합니다 (관리 명령).</td></tr>
+      <tr><td class="opt">음악 전용 채널</td><td>웹 관리 페이지의 🎵 음악 설정에서 지정합니다. 그 채널에 재생을 조작할 컨트롤러 메시지가 올라가요.</td></tr>
       <tr><td class="opt">/join</td><td>전용 채널에서 봇을 사용자의 음성 채널로 불러옵니다.</td></tr>
       <tr><td class="opt">/leave</td><td>대기열을 비우고 음성 채널에서 퇴장합니다. <span class="pill">stop</span></td></tr>
     </table>

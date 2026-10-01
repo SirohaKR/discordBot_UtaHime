@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""프롬프트 추천 전용 채널.
+"""프롬프트 추천 전용 채널 (채널 지정은 웹 관리 페이지의 💬 AI 채팅에서).
 
 지정한 채널에 문장(+선택적으로 이미지 첨부)을 그냥 입력하면, Claude가 그림 생성용
 Danbooru 태그로 변환해서 답장해준다. 이미지만 첨부하고 텍스트가 없으면 이미지를
@@ -9,7 +9,6 @@ Danbooru 태그로 변환해서 답장해준다. 이미지만 첨부하고 텍�
 import time
 
 import discord
-from discord import app_commands
 from discord.ext import commands
 
 from core import prompt_channel_db
@@ -74,19 +73,6 @@ class PromptSuggest(commands.Cog):
         embed.set_footer(text="NovelAI·PixAI 같은 그림 생성 사이트에 그대로 붙여넣어 쓰면 돼요.")
         await message.reply(embed=embed, mention_author=False)
 
-    @app_commands.command(name="프롬프트채널설정", description="현재 채널을 프롬프트 추천 전용 채널로 지정합니다.")
-    @app_commands.guild_only()
-    async def set_prompt_channel(self, interaction: discord.Interaction):
-        await prompt_channel_db.async_set_channel(self.bot.loop, interaction.guild.id, interaction.channel.id)
-        await interaction.response.send_message(
-            f"✅ 이제 {interaction.channel.mention} 에 문장(또는 이미지)을 적으면 AI가 태그를 추천해줍니다."
-        )
-
-    @app_commands.command(name="프롬프트채널설정해제", description="프롬프트 추천 채널 지정을 해제합니다.")
-    @app_commands.guild_only()
-    async def clear_prompt_channel(self, interaction: discord.Interaction):
-        await prompt_channel_db.async_clear_channel(self.bot.loop, interaction.guild.id)
-        await interaction.response.send_message("✅ 프롬프트 추천 채널 지정을 해제했습니다.")
 
 
 async def setup(bot: commands.Bot):

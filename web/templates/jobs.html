@@ -1,0 +1,108 @@
+{% extends "guild_shell.html" %}
+{% block section %}
+<div class="card">
+  <div class="card-title"><div class="card-icon">📝</div><h2>공지 작성</h2></div>
+  <p class="desc">
+    길드원이 이모티콘을 누르면 역할이 붙고, 다른 이모티콘을 누르면 이전 것으로
+    자동 교체됩니다. (캐릭터 인증과 달리 관리자 승인 없이 바로 부여되는 셀프 선택형이에요)
+  </p>
+
+  <label>공지 제목</label>
+  <input type="text" id="ann-title" placeholder="예: 🍁 역할을 선택해주세요"
+         value="{{ announcement_draft.title or '' }}">
+
+  <label>공지 내용</label>
+  {% set target_selector = "#ann-body" %}
+  {% include "_markdown_toolbar.html" %}
+  <textarea id="ann-body" rows="8" placeholder="예: 본인이 원하는 역할에 맞는 이모티콘을 눌러주세요!">{{ announcement_draft.body or '' }}</textarea>
+</div>
+
+<div class="card">
+  <div class="card-title"><div class="card-icon">🎭</div><h2>역할 목록</h2></div>
+  <p class="desc">
+    이모티콘과 역할을 원하는 만큼 추가/삭제하세요. 게시할 때 위 공지 내용 밑에
+    이 목록이 자동으로 붙습니다.
+  </p>
+
+  <table>
+    {% for job in job_list %}
+    <tr>
+      <td style="width:36px;font-size:18px;">{{ job.emoji }}</td>
+      <td>{{ job.label }}</td>
+      <td class="tag">{{ roles_by_id.get(job.role_id, '(삭제된 역할)') }}</td>
+      <td style="width:70px;">
+        <form method="post" action="{{ url_for('delete_job', guild_id=guild_id) }}" class="ann-carry">
+          <input type="hidden" name="index" value="{{ loop.index0 }}">
+          <input type="hidden" name="title"><input type="hidden" name="body">
+          <button type="submit" style="margin:0;background:var(--danger);padding:4px 10px;font-size:12px;">삭제</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="tag">아직 추가된 역할이 없습니다. 아래에서 하나씩 추가해주세요.</td></tr>
+    {% endfor %}
+  </table>
+
+  <form method="post" action="{{ url_for('add_job', guild_id=guild_id) }}" class="ann-carry" style="margin-top:14px;">
+    <input type="hidden" name="title"><input type="hidden" name="body">
+    <div class="row">
+      <div>
+        <label>역할 이름</label>
+        <input type="text" name="label" placeholder="예: 히어로" required>
+      </div>
+      <div>
+        <label>이모티콘</label>
+        <input type="text" name="emoji" placeholder="예: 🦸" required>
+      </div>
+      <div>
+        <label>역할</label>
+        <select name="role_id" required>
+          {% for r in roles %}
+          <option value="{{ r.id }}">{{ r.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <button type="submit">➕ 목록에 추가</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-title"><div class="card-icon">📢</div><h2>게시</h2></div>
+  <form method="post" action="{{ url_for('post_job_roles', guild_id=guild_id) }}" class="ann-carry"
+        enctype="multipart/form-data">
+    <input type="hidden" name="title"><input type="hidden" name="body">
+
+    {% include "_image_picker.html" %}
+
+    <label>공지를 올릴 채널</label>
+    <select name="channel_id" required>
+      {% for c in text_channels %}
+      <option value="{{ c.id }}" {% if settings.get('job_roles', {}).get('channel_id') == c.id|int %}selected{% endif %}>#{{ c.name }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" {% if not job_list %}disabled{% endif %}>📢 공지 게시하기</button>
+  </form>
+</div>
+
+<script>
+  // "목록에 추가"/"삭제"/"게시하기" 버튼 중 뭘 눌러도, 방금 위에서 쓴 공지
+  // 제목/내용이 그대로 그 요청에 실려가게 전송 직전에 값을 채워 넣는다.
+  // (페이지가 새로고침돼도 서버가 값을 기억했다가 다시 채워 넣도록. 이미지는
+  // 파일 첨부라서 새로고침 후엔 되살릴 수 없으니 여기서 다루지 않는다)
+  document.querySelectorAll("form.ann-carry").forEach(function (form) {
+    form.addEventListener("submit", function () {
+      form.querySelector('[name="title"]').value = document.getElementById("ann-title").value;
+      form.querySelector('[name="body"]').value = document.getElementById("ann-body").value;
+    });
+  });
+</script>
+{% endblock %}
+
+{% block preview %}
+{% set preview_id = "jobs" %}
+{% set title_selector = "#ann-title" %}
+{% set body_selector = "#ann-body" %}
+{% set extra_note = "실제로 게시하면 이 아래에 지금 등록된 역할+이모티콘 목록이 자동으로 붙어요." %}
+{% include "_message_preview.html" %}
+{% endblock %}

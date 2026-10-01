@@ -4,8 +4,7 @@
 시로냥 봇의 TTS 기능을 가져온 것이다 (합성 엔진은 core/tts_engine.py — edge-tts 무료 /
 AWS Polly / 타입캐스트).
 
-시로냥은 TTS 채널/목소리를 웹 설정 페이지에서 골랐지만, 여기서는 슬래시 명령어로 정한다.
-  - 관리: /tts채널설정, /tts채널해제, /tts기본목소리
+TTS 채널과 서버 기본 목소리는 웹 관리 페이지의 "🗣️ TTS"에서 정한다.
   - 개인: /목소리설정 (자동완성으로 검색 — 타입캐스트 600개도 글자 입력하면 검색됨),
           /내목소리, /목소리초기화, /목소리미리듣기
 
@@ -179,44 +178,6 @@ class Tts(commands.Cog):
         if vc.is_playing() or self._music_session_active(vc):
             return
         await vc.disconnect()
-
-    # ---- 관리 명령 ----
-
-    @app_commands.command(name="tts채널설정", description="현재 채널을 TTS 채널로 지정합니다. 여기 쓴 글을 음성채널에서 읽어줘요.")
-    @app_commands.guild_only()
-    @app_commands.default_permissions(manage_channels=True)
-    async def set_tts_channel(self, interaction: discord.Interaction):
-        tts = dict(get_guild_settings(interaction.guild.id).get("tts") or {})
-        tts["channel_id"] = interaction.channel.id
-        tts.setdefault("voice", DEFAULT_VOICE)
-        update_guild_settings(interaction.guild.id, tts=tts)
-        await interaction.response.send_message(
-            f"✅ 이제 {interaction.channel.mention} 에 쓴 글을, 쓴 사람이 들어가 있는 음성채널에서 읽어드려요.\n"
-            f"서버 기본 목소리: **{await _voice_label(tts['voice'])}** (`/tts기본목소리`로 변경)"
-        )
-
-    @app_commands.command(name="tts채널해제", description="TTS 채널 지정을 해제합니다.")
-    @app_commands.guild_only()
-    @app_commands.default_permissions(manage_channels=True)
-    async def clear_tts_channel(self, interaction: discord.Interaction):
-        tts = dict(get_guild_settings(interaction.guild.id).get("tts") or {})
-        tts["channel_id"] = None
-        update_guild_settings(interaction.guild.id, tts=tts)
-        await interaction.response.send_message("✅ TTS 채널 지정을 해제했습니다.")
-
-    @app_commands.command(name="tts기본목소리", description="이 서버의 TTS 기본 목소리를 정합니다 (개인 설정이 없는 사람에게 적용).")
-    @app_commands.describe(목소리="목소리 이름을 입력해서 검색")
-    @app_commands.autocomplete(목소리=_voice_autocomplete)
-    @app_commands.guild_only()
-    @app_commands.default_permissions(manage_channels=True)
-    async def set_default_voice(self, interaction: discord.Interaction, 목소리: str):
-        if not _is_valid_voice_id(목소리):
-            await interaction.response.send_message("❌ 목록에 있는 목소리를 골라주세요 (자동완성 사용).", ephemeral=True)
-            return
-        tts = dict(get_guild_settings(interaction.guild.id).get("tts") or {})
-        tts["voice"] = 목소리
-        update_guild_settings(interaction.guild.id, tts=tts)
-        await interaction.response.send_message(f"✅ 서버 기본 목소리를 **{await _voice_label(목소리)}** (으)로 바꿨어요.")
 
     # ---- 개인 명령 ----
 
