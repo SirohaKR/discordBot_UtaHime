@@ -12,4 +12,5 @@ legacy_UtaHime.py
 
 # 로컬 전용 Claude Code 설정
 .claude/settings.local.json
-data/
+data/*
+!data/.gitkeep
