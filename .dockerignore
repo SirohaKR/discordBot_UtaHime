@@ -5,3 +5,8 @@ __pycache__/
 legacy_UtaHime.py
 playlists.db
 data/
+playlists.db-*
+rembg_models/
+img/
+bot_settings.json*
+*.zip

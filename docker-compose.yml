@@ -26,3 +26,5 @@ services:
       - ./playlists.db:/app/playlists.db
       # 서버 관리 설정(data/settings.json) — 봇과 같은 파일을 읽고 쓴다
       - ./data:/app/data
+      # 웹 "내장 이미지" — NAS의 img/ 폴더를 그대로 읽어서, 그림을 넣어도 다시 빌드할 필요 없음
+      - ./img:/app/img
